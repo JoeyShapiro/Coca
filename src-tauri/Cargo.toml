@@ -14,7 +14,7 @@ tauri-build = { version = "1", features = [] }
 tauri = { version = "1", features = ["shell-open"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-gilrs = "0.10.3"
+gilrs = { version = "0.10.3", features = ["serde-serialize"] }
 rocksdb = "0.22.0"
 
 [features]
