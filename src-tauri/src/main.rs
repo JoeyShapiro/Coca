@@ -6,11 +6,42 @@ use std::time::UNIX_EPOCH;
 // use rocksdb::{DB, Options};
 
 use gilrs::{Gilrs, Button, Event};
+use serde::Serialize;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+#[derive(Serialize)]
+struct Application {
+    name: String,
+    presses: i32,
+    combos: i32,
+}
+
+#[tauri::command]
+fn applications() -> Vec<Application> {
+    let mut apps = Vec::new();
+    // add some applications
+    apps.push(Application {
+        name: "Firefox".to_string(),
+        presses: 0,
+        combos: 0,
+    });
+    apps.push(Application {
+        name: "Hatsune Miku Project Diva 2nd Stage".to_string(),
+        presses: 10_000_000,
+        combos: 20,
+    });
+    apps.push(Application {
+        name: "Skyrim".to_string(),
+        presses: 1_000_000,
+        combos: 10,
+    });
+
+    apps
 }
 
 fn main() {
@@ -55,7 +86,7 @@ fn main() {
     });
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![greet, applications])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
