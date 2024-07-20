@@ -3,7 +3,7 @@
 
 use std::time::UNIX_EPOCH;
 
-use rocksdb::{DB, Options};
+// use rocksdb::{DB, Options};
 
 use gilrs::{Gilrs, Button, Event};
 
@@ -27,7 +27,7 @@ fn main() {
     let gilrs_thread = std::thread::spawn(|| {
         let mut gilrs = Gilrs::new().unwrap();
         let path = "coca-rocks.db";
-        let db = DB::open_default(path).unwrap();
+        // let db = DB::open_default(path).unwrap();
 
         // Iterate over all connected gamepads
         for (_id, gamepad) in gilrs.gamepads() {
@@ -42,11 +42,12 @@ fn main() {
                 println!("serialized = {}", serialized);
                 // convert time to unix time
                 let unix_time = time.duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-                db.put(unix_time.to_ne_bytes(), serialized).unwrap();
+                // db.put(unix_time.to_ne_bytes(), serialized).unwrap();
                 
                 // check if it is a connection event
                 if event == gilrs::ev::EventType::Connected {
                     let gamepad = gilrs.gamepad(id);
+                    
                     println!("connected: {:?}; power: {:?}; ff: {:?}", gamepad.name(), gamepad.power_info(), gamepad.is_ff_supported());
                 }
             }
