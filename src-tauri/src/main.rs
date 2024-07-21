@@ -5,7 +5,7 @@ use std::time::UNIX_EPOCH;
 
 // use rocksdb::{DB, Options};
 
-use gilrs::{Button, Event, Gamepad, Gilrs};
+use gilrs::{Button, Event, Gilrs};
 use serde::Serialize;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -99,7 +99,7 @@ fn main() {
             let serialized = serde_json::to_string(&rock).unwrap();
 
             println!("serialized = {}", serialized);
-            
+
             // db.put(unix_time.to_ne_bytes(), serialized).unwrap();
         }
     }
