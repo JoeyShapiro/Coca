@@ -31,11 +31,13 @@
 
   class Application {
     name: string;
+    controller: string;
     presses: number;
     combos: number;
 
-    constructor(name: string, presses: number, combos: number) {
+    constructor(name: string, controller: string, presses: number, combos: number) {
       this.name = name;
+      this.controller = controller;
       this.presses = presses;
       this.combos = combos;
     }
@@ -89,7 +91,7 @@
     <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">
       <div class="dropdown text-end">
         <a href="/" class="d-block link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-          <img src="%sveltekit.assets%/favicon.png" alt="mdo" width="32" height="32" class="rounded-circle">
+          <img src="/favicon.png" alt="mdo" width="32" height="32" class="rounded-circle">
         </a>
         <ul class="dropdown-menu text-small">
           <li><a class="dropdown-item" href="#">New project...</a></li>
@@ -99,9 +101,9 @@
       </div>
 
       <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
-        <li><a href="#" class="nav-link px-2 link-secondary">Dashboard</a></li>
-        <li><a href="#" class="nav-link px-2 link-body-emphasis">Applications</a></li>
-        <li><a href="#" class="nav-link px-2 link-body-emphasis">Playground</a></li>
+        <li><a href="/" class="nav-link px-2 link-secondary">Dashboard</a></li>
+        <li><a href="/applications" class="nav-link px-2 link-body-emphasis">Applications</a></li>
+        <li><a href="/playground" class="nav-link px-2 link-body-emphasis">Playground</a></li>
       </ul>
 
       <form class="col-12 col-lg-auto mb-3 mb-lg-0 me-lg-3" role="search">
@@ -119,25 +121,25 @@
           <ul class="nav flex-column">
             <li class="nav-item">
               <a class="nav-link d-flex align-items-center gap-2 link-secondary" href="#">
-                <svg class="bi"><use xlink:href="#people"></use></svg>
+                <img src="/overview.svg" class="bi" alt="overview" />
                 Overview
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis" href="#">
-                <svg class="bi"><use xlink:href="#people"></use></svg>
+                <img src="/heatmap.svg" class="bi" alt="overview" />
                 Heatmap
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis" href="#">
-                <svg class="bi"><use xlink:href="#graph-up"></use></svg>
+                <img src="/combo.svg" class="bi" alt="combo" />
                 Combos
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis" href="#">
-                <svg class="bi"><use xlink:href="#puzzle"></use></svg>
+                <!-- <img src="/overview.svg" class="logo" alt="overview" /> -->
                 Integrations
               </a>
             </li>
@@ -207,7 +209,7 @@
             {#each apps as app, i}
               <tr>
                 <td>{i + 1}</td>
-                <td>{app.name}</td>
+                <td><a class="nav-link" href="/">{app.name}</a></td>
                 <td>{app.presses}</td>
                 <td>{app.combos}</td>
               </tr>
@@ -245,21 +247,8 @@
 main {
     margin-left: 250px; /* Should match the sidebar width */
 }
-</style>
 
-<!-- <div class="d-flex flex-column flex-md-row align-items-center justify-content-center">
-  <div class="list-group">
-    <a href="#" class="list-group-item list-group-item-action d-flex gap-2" aria-current="true">
-      <img src="https://github.com/twbs.png" alt="twbs" width="16" height="16" class="rounded-circle flex-shrink-0">
-        <small class="opacity-75 text-nowrap">Skyrim</small>
-    </a>
-    <a href="#" class="list-group-item list-group-item-action d-flex gap-2" aria-current="true">
-      <img src="https://github.com/twbs.png" alt="twbs" width="16" height="16" class="rounded-circle flex-shrink-0">
-        <small class="opacity-75 text-nowrap">Warframe</small>
-    </a>
-    <a href="#" class="list-group-item list-group-item-action d-flex gap-2" aria-current="true">
-      <img src="https://github.com/twbs.png" alt="twbs" width="16" height="16" class="rounded-circle flex-shrink-0">
-      <small class="opacity-75 text-nowrap">Hatsune Miku Project Diva 2nd Stage</small>
-    </a>
-  </div>
-</div> -->
+.logo.tauri:hover {
+  filter: drop-shadow(0 0 2em #24c8db);
+}
+</style>
