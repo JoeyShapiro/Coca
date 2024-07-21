@@ -46,44 +46,65 @@
     }
   }
 
-  let apps: Application[] = [];
+  class Point {
+    data: number;
+    label: string;
 
-  async function applications() {
-    apps = await invoke("applications");
-
-    // sort by presses
-    apps.sort((a, b) => b.presses - a.presses);
+    constructor(data: number, label: string) {
+      this.data = data;
+      this.label = label;
+    }
   }
 
-  const data: ChartData<'line', number[], unknown> = {
-  labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
-  datasets: [
-    {
-      label: 'Total presses',
-      fill: true,
-      tension: 0.3,
-      backgroundColor: 'rgba(225, 204,230, .3)',
-      borderColor: 'rgb(205, 130, 158)',
-      borderCapStyle: 'butt',
-      borderDash: [],
-      borderDashOffset: 0.0,
-      borderJoinStyle: 'miter',
-      pointBorderColor: 'rgb(205, 130,1 58)',
-      pointBackgroundColor: 'rgb(255, 255, 255)',
-      pointBorderWidth: 10,
-      pointHoverRadius: 5,
-      pointHoverBackgroundColor: 'rgb(0, 0, 0)',
-      pointHoverBorderColor: 'rgba(220, 220, 220,1)',
-      pointHoverBorderWidth: 2,
-      pointRadius: 1,
-      pointHitRadius: 10,
-      data: [65, 59, 80, 81, 56, 55, 40],
-    },
-  ],
-};
+  let apps: Application[] = [];
+  let points: Point[] = [];
+  let timeframe: string = "week";
 
-  onMount(() => {
-    applications();
+  let chartData: ChartData<'line', number[], unknown> = {
+    labels: points.map((point) => point.label),
+    datasets: [
+      {
+        label: 'Total presses',
+        fill: true,
+        tension: 0.3,
+        backgroundColor: 'rgba(225, 204,230, .3)',
+        borderColor: 'rgb(205, 130, 158)',
+        borderCapStyle: 'butt',
+        borderDash: [],
+        borderDashOffset: 0.0,
+        borderJoinStyle: 'miter',
+        pointBorderColor: 'rgb(205, 130,1 58)',
+        pointBackgroundColor: 'rgb(255, 255, 255)',
+        pointBorderWidth: 10,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: 'rgb(0, 0, 0)',
+        pointHoverBorderColor: 'rgba(220, 220, 220,1)',
+        pointHoverBorderWidth: 2,
+        pointRadius: 1,
+        pointHitRadius: 10,
+        data: points.map((point) => point.data),
+      },
+    ],
+  };
+
+  function updateGraph() {
+    invoke("graph", { timeframe }).then((data) => {
+      points = data as Point[];
+      chartData.labels = points.map((point) => point.label);
+      chartData.datasets[0].data = points.map((point) => point.data);
+    });
+  }
+
+  onMount(async () => {
+    apps = await invoke("applications");
+    // sort by presses
+    apps.sort((a, b) => b.presses - a.presses);
+
+    // get points
+    points = await invoke("graph", { timeframe: "week" });
+
+    chartData.labels = points.map((point) => point.label);
+    chartData.datasets[0].data = points.map((point) => point.data);
   });
 
 </script>
@@ -105,29 +126,29 @@
           <div class="dropdown">
             <button class="btn btn-sm btn-outline-secondary gap-1 py-2 px-0 px-lg-2 dropdown-toggle align-items-center" type="button" data-bs-toggle="dropdown">
               <svg class="bi"><use xlink:href="#calendar3"></use></svg>
-              Past week
+              Past {timeframe}
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center">
+                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'day' ? 'active' : '' }" on:click={() => {timeframe = 'day'; updateGraph()}}>
                   <svg class="bi me-2 opacity-50"><use href="#sun-fill"></use></svg>
                   Past day
                 </button>
               </li>
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center active">
+                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'week' ? 'active' : '' }" on:click={() => {timeframe = 'week'; updateGraph()}}>
                   <svg class="bi me-2 opacity-50"><use href="#sun-fill"></use></svg>
                   Past week
                 </button>
               </li>
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center">
+                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'month' ? 'active' : '' }" on:click={() => {timeframe = 'month'; updateGraph()}}>
                   <svg class="bi me-2 opacity-50"><use href="#moon-stars-fill"></use></svg>
                   Past month
                 </button>
               </li>
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center">
+                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'year' ? 'active' : '' }" on:click={() => {timeframe = 'year'; updateGraph()}}>
                   <svg class="bi me-2 opacity-50"><use href="#circle-half"></use></svg>
                   Past Year
                 </button>
@@ -137,7 +158,7 @@
         </div>
       </div>
 
-      <Line {data} options={{ responsive: true }} />
+      <Line data={chartData} options={{ responsive: true }} />
 
       <h2>Applications</h2>
       <div class="table-responsive small">
@@ -162,6 +183,8 @@
           </tbody>
         </table>
       </div>
+
+      <h2>Heatmap</h2>
     </main>
   </div>
 </div>

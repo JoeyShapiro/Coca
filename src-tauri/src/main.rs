@@ -1,7 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::time::UNIX_EPOCH;
+use std::time::{SystemTime, UNIX_EPOCH};
+use chrono::prelude::*;
 
 // use rocksdb::{DB, Options};
 
@@ -29,6 +30,12 @@ struct Rock {
     event: gilrs::EventType,
 }
 
+#[derive(Serialize)]
+struct Point {
+    data: u32,
+    label: String,
+}
+
 #[tauri::command]
 fn applications() -> Vec<Application> {
     let mut apps = Vec::new();
@@ -53,6 +60,67 @@ fn applications() -> Vec<Application> {
     });
 
     apps
+}
+
+fn past_day() -> Vec<Point> {
+    let mut points = Vec::new();
+
+    let unix_time = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+    // get the time 24 hours ago
+    let unix_time_24 = unix_time - 86_400_000;
+
+    for i in 0..24 {
+        let unix_day = unix_time_24 + (i as u128 * 3_600_000);
+        // format to 12 hour time
+        let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(unix_day as u64);
+        let datetime = DateTime::<Utc>::from(time);
+        // Formats the combined date and time with the specified format string.
+        let timestamp_str = datetime.format("%I %p").to_string();
+
+        points.push(Point {
+            data: i * 10,
+            label: timestamp_str,
+        });
+    }
+
+    points
+}
+
+fn past_week() -> Vec<Point> {
+    let mut points = Vec::new();
+
+    let unix_time = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+    // get the time 7 days ago
+    let unix_time_7 = unix_time - 604_800_000;
+
+    for i in 0..7 {
+        let unix_day = unix_time_7 + (i as u128 * 86_400_000);
+        // format to 12 hour time
+        let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(unix_day as u64);
+        let datetime = DateTime::<Utc>::from(time);
+        // Formats the combined date and time with the specified format string.
+        let timestamp_str = datetime.format("%a").to_string();
+
+        points.push(Point {
+            data: i * 10,
+            label: timestamp_str,
+        });
+    }
+
+    points
+}
+
+#[tauri::command]
+fn graph(timeframe: String) -> Vec<Point> {
+    let points = match timeframe.as_str() {
+        "day" => past_day(),
+        "week" => past_week(),
+        // "month" => past_month(),
+        // "year" => past_year(),
+        _ => past_day(),
+    };
+
+    points
 }
 
 fn main() {
@@ -106,7 +174,7 @@ fn main() {
     });
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet, applications])
+        .invoke_handler(tauri::generate_handler![greet, applications, graph])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
