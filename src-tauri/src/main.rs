@@ -1,13 +1,24 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{process::exit, time::{SystemTime, UNIX_EPOCH}};
 use chrono::prelude::*;
 
-// use rocksdb::{DB, Options};
+use rocksdb::{DB, Options};
 
 use gilrs::{Button, Event, Gilrs};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+use std::io::{Write, BufReader, BufRead, Error};
+
+#[cfg(windows)]
+use windows::{
+    core::*,
+    Win32::Foundation::*,
+    Win32::System::Threading::*,
+    Win32::UI::WindowsAndMessaging::*,
+    Win32::System::ProcessStatus::*,
+};
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -23,14 +34,15 @@ struct Application {
     combos: i32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct Rock {
     at: u128,
     pad: String,
+    app: String,
     event: gilrs::EventType,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct Point {
     data: u32,
     label: String,
@@ -38,26 +50,32 @@ struct Point {
 
 #[tauri::command]
 fn applications() -> Vec<Application> {
-    let mut apps = Vec::new();
-    // add some applications
-    apps.push(Application {
-        name: "Firefox".to_string(),
-        controller: "Keyboard".to_string(),
-        presses: 0,
-        combos: 0,
-    });
-    apps.push(Application {
-        name: "Hatsune Miku Project Diva 2nd Stage".to_string(),
-        controller: "PS5 Controller".to_string(),
-        presses: 10_000_000,
-        combos: 20,
-    });
-    apps.push(Application {
-        name: "Skyrim".to_string(),
-        controller: "Xbox One S".to_string(),
-        presses: 1_000_000,
-        combos: 10,
-    });
+    let mut apps = Vec::<Application>::new();
+    
+    // open an iter to read the db
+    let path = "coca-rocks.db";
+    let opts = Options::default();
+    let db = DB::open(&opts, path).unwrap();
+
+    let iter = db.iterator(rocksdb::IteratorMode::Start);
+    for row in iter {
+        let (key, value) = row.unwrap();
+        let value = String::from_utf8(value.into_vec()).unwrap();
+
+        let rock: Rock = serde_json::from_str(&value).unwrap();
+
+        let app = apps.iter_mut().find(|app| app.name == rock.app);
+        if let Some(app) = app {
+            app.presses += 1;
+        } else {
+            apps.push(Application {
+                name: rock.app,
+                controller: rock.pad,
+                presses: 1,
+                combos: 0,
+            });
+        }
+    }
 
     apps
 }
@@ -123,6 +141,31 @@ fn graph(timeframe: String) -> Vec<Point> {
     points
 }
 
+#[cfg(windows)]
+fn get_foreground_process() -> Result<String> {
+    unsafe {
+        let window = GetForegroundWindow();
+        if window.0 == 0 {
+            return Err(Error::from_win32());
+        }
+
+        let mut process_id = 0;
+        GetWindowThreadProcessId(window, Some(&mut process_id));
+
+        let process_handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, process_id)?;
+
+        let mut buffer = [0u16; 260];
+        let size = GetModuleFileNameExW(process_handle, None, &mut buffer);
+        
+        if size == 0 {
+            return Err(Error::from_win32());
+        }
+
+        let process_name = String::from_utf16_lossy(&buffer[..size as usize]);
+        Ok(process_name)
+    }
+}
+
 fn main() {
     //     match db.get(b"my key") {
     //         Ok(Some(value)) => println!("retrieved value {}", String::from_utf8(value).unwrap()),
@@ -137,7 +180,42 @@ fn main() {
     let gilrs_thread = std::thread::spawn(|| {
     let mut gilrs = Gilrs::new().unwrap();
     let path = "coca-rocks.db";
-    // let db = DB::open_default(path).unwrap();
+    // let mut opts = Options::default();
+    // opts.create_if_missing(true);
+    // // open default: 15.5MiB (111k)
+    // let db = DB::open(&opts, path).unwrap();
+
+    // // insert 1000 values of dummy data
+    // let pad = "PS5 Controller".to_string();
+    // let data = "{\"AxisChanged\":[\"LeftStickY\",0.010416665,{\"page\":1,\"usage\":49}]}";
+    // let event = serde_json::from_str(data).unwrap();
+
+    // let start = SystemTime::now();
+    // for _i in 0..100000 {
+    //     let app = match rand::random::<u32>() % 5 {
+    //         0 => "Skyrim".to_string(),
+    //         1 => "Minecraft".to_string(),
+    //         2 => "Hatsune Miku Project Diva 2nd Stage".to_string(),
+    //         3 => "Muse Dash".to_string(),
+    //         4 => "Tekken 8".to_string(),
+    //         _ => "?".to_string(),
+    //     };
+
+    //     let time = SystemTime::now();
+    //     let unix_time = time.duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+    //     let rock = Rock {
+    //         at: unix_time,
+    //         pad: pad.clone(),
+    //         app: app.clone(),
+    //         event,
+    //     };
+
+    //     let serialized = serde_json::to_string(&rock).unwrap();
+    //     db.put(unix_time.to_ne_bytes(), serialized).unwrap();
+    // }
+    // let end = SystemTime::now();
+    // println!("inserted 1000 values in {:?}", end.duration_since(start).unwrap());
+    // exit(0);
 
     // Iterate over all connected gamepads
     for (_id, gamepad) in gilrs.gamepads() {
@@ -145,6 +223,7 @@ fn main() {
     }
 
     let mut pad = "?".to_string();
+    let mut app = "?".to_string();
 
     loop {
         // Examine new events
@@ -161,6 +240,7 @@ fn main() {
             let rock = Rock {
                 at: unix_time,
                 pad: pad.clone(),
+                app: app.clone(),
                 event,
             };
 
