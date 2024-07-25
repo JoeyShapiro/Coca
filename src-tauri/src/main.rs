@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{io::Read, process::exit, time::{SystemTime, UNIX_EPOCH}};
+use std::{io::Read, process::exit, thread::sleep, time::{SystemTime, UNIX_EPOCH, Duration}};
 use chrono::prelude::*;
 
 use rocksdb::{DB, Options};
@@ -60,7 +60,6 @@ fn applications() -> Vec<Application> {
 
     let iter = db.iterator(rocksdb::IteratorMode::Start);
     for row in iter {
-        println!("row = {:?}", row);
         let (key, value) = row.unwrap();
         let value = String::from_utf8(value.into_vec()).unwrap();
 
@@ -109,7 +108,6 @@ fn past_day() -> Vec<Point> {
     for row in iter {
         let (key, _value) = row.unwrap();
         let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
-        println!("at = {}", at);
         // let at = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(test as u64);
 
         // add the data to the proper bucket
@@ -202,44 +200,56 @@ fn main() {
     //     db.delete(b"my key").unwrap();
     // }
     // let _ = DB::destroy(&Options::default(), path);
+    {
+        let path = "coca-rocks.db";
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        // open default: 15.5MiB (111k)
+        let db = DB::open(&opts, path).unwrap();
 
-    let path = "coca-rocks.db";
-    let mut opts = Options::default();
-    opts.create_if_missing(true);
-    // open default: 15.5MiB (111k)
-    let db = DB::open(&opts, path).unwrap();
+        // insert 1000 values of dummy data
+        let pad = "PS5 Controller".to_string();
+        let data = "{\"AxisChanged\":[\"LeftStickY\",0.010416665,{\"page\":1,\"usage\":49}]}";
+        let event = serde_json::from_str(data).unwrap();
 
-    // insert 1000 values of dummy data
-    let pad = "PS5 Controller".to_string();
-    let data = "{\"AxisChanged\":[\"LeftStickY\",0.010416665,{\"page\":1,\"usage\":49}]}";
-    let event = serde_json::from_str(data).unwrap();
+        let start = SystemTime::now();
+        let n = 100;
+        let unix_time = start.duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() - (n as u128) * 100;
+        for i in 0..n {
+            let app = match rand::random::<u32>() % 5 {
+                0 => "Skyrim".to_string(),
+                1 => "Minecraft".to_string(),
+                2 => "Hatsune Miku Project Diva 2nd Stage".to_string(),
+                3 => "Muse Dash".to_string(),
+                4 => "Tekken 8".to_string(),
+                _ => "?".to_string(),
+            };
 
-    let start = SystemTime::now();
-    let n = 100000;
-    let unix_time = start.duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() - (n as u128) * 100;
-    for i in 0..n {
-        let app = match rand::random::<u32>() % 5 {
-            0 => "Skyrim".to_string(),
-            1 => "Minecraft".to_string(),
-            2 => "Hatsune Miku Project Diva 2nd Stage".to_string(),
-            3 => "Muse Dash".to_string(),
-            4 => "Tekken 8".to_string(),
-            _ => "?".to_string(),
-        };
+            let at = unix_time + (i as u128) * 100;
+            let rock = Rock {
+                at,
+                pad: pad.clone(),
+                app: app.clone(),
+                event,
+            };
 
-        let rock = Rock {
-            at: unix_time + (i as u128) * 100,
-            pad: pad.clone(),
-            app: app.clone(),
-            event,
-        };
-
-        let serialized = serde_json::to_string(&rock).unwrap();
-        db.put(unix_time.to_ne_bytes(), serialized).unwrap();
+            let serialized = serde_json::to_string(&rock).unwrap();
+            // i think doing 100_000 with time::now is too fast
+            // somehow, using the same key gives more than one row
+            db.put(at.to_ne_bytes(), serialized).unwrap();
+            // sleep(Duration::from_millis(100)); // wont do anything besides slow it down. im using unix_time as the key
+            // db.flush().unwrap(); // this will make the db big, but has no data
+        }
+        db.flush().unwrap();
+        let end = SystemTime::now();
+        println!("inserted {n} values in {:?}", end.duration_since(start).unwrap());
+        // exit(0);
     }
-    let end = SystemTime::now();
-    println!("inserted {n} values in {:?}", end.duration_since(start).unwrap());
-    exit(0);
+
+    // do a get test
+    // {
+
+    // }
 
     // run gilrs in a separate thread
     let gilrs_thread = std::thread::spawn(|| {
