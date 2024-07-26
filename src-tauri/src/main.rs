@@ -93,7 +93,7 @@ fn past_day() -> Vec<Point> {
 
         // Formats the combined date and time with the specified format string.
         let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(at as u64);
-        let label = DateTime::<Utc>::from(time).format("%I %p").to_string();
+        let label = DateTime::<Utc>::from(time).format("%l %P").to_string();
 
         Point { 
             data: 0, label, at
