@@ -213,8 +213,9 @@ fn main() {
         let event = serde_json::from_str(data).unwrap();
 
         let start = SystemTime::now();
-        let n = 100;
-        let unix_time = start.duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() - (n as u128) * 100;
+        let n = 100000;
+        let t = 100;
+        let unix_time = start.duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() - (n as u128) * t;
         for i in 0..n {
             let app = match rand::random::<u32>() % 5 {
                 0 => "Skyrim".to_string(),
@@ -225,7 +226,7 @@ fn main() {
                 _ => "?".to_string(),
             };
 
-            let at = unix_time + (i as u128) * 100;
+            let at = unix_time + (i as u128) * t;
             let rock = Rock {
                 at,
                 pad: pad.clone(),
