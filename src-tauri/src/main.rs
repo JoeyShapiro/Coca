@@ -88,8 +88,16 @@ fn past_day() -> Vec<Point> {
 
     // could do a vec, but would need one for each day anyway.
     // this would be better for adding hours with no data
-    let mut buckets: [Point; 24] = std::array::from_fn(|i| Point { 
-        data: 0, label: String::new(), at: unix_time_24 + (i as u128 * 3_600_000)
+    let mut buckets: [Point; 24] = std::array::from_fn(|i| {
+        let at = unix_time_24 + (i as u128 * 3_600_000);
+
+        // Formats the combined date and time with the specified format string.
+        let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(at as u64);
+        let label = DateTime::<Utc>::from(time).format("%I %p").to_string();
+
+        Point { 
+            data: 0, label, at
+        }
     });
 
     // open an iter to read the db
@@ -97,15 +105,7 @@ fn past_day() -> Vec<Point> {
     let opts = Options::default();
     let db = DB::open(&opts, path).unwrap();
 
-        // let mut ro = rocksdb::ReadOptions::default();
-        // // Set bounds to test that set_iterate_range clears old bounds.
-        // ro.set_iterate_lower_bound(vec![b'z']);
-        // ro.set_iterate_upper_bound(vec![b'z']);
-        // ro.set_iterate_range(range);
-
-    // let mut iter = .into_iter();
-    let mut iter = db.iterator(rocksdb::IteratorMode::Start);
-    for row in iter {
+    for row in db.iterator(rocksdb::IteratorMode::Start) {
         let (key, _value) = row.unwrap();
         let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
         // let at = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(test as u64);
@@ -119,11 +119,6 @@ fn past_day() -> Vec<Point> {
             }
         }
     }
-
-    // let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(unix_day as u64);
-    // let datetime = DateTime::<Utc>::from(time);
-    // // Formats the combined date and time with the specified format string.
-    // let timestamp_str = datetime.format("%I %p").to_string();
 
     buckets.to_vec()
 }
@@ -200,52 +195,52 @@ fn main() {
     //     db.delete(b"my key").unwrap();
     // }
     // let _ = DB::destroy(&Options::default(), path);
-    {
-        let path = "coca-rocks.db";
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        // open default: 15.5MiB (111k)
-        let db = DB::open(&opts, path).unwrap();
+    // {
+    //     let path = "coca-rocks.db";
+    //     let mut opts = Options::default();
+    //     opts.create_if_missing(true);
+    //     // open default: 15.5MiB (111k)
+    //     let db = DB::open(&opts, path).unwrap();
 
-        // insert 1000 values of dummy data
-        let pad = "PS5 Controller".to_string();
-        let data = "{\"AxisChanged\":[\"LeftStickY\",0.010416665,{\"page\":1,\"usage\":49}]}";
-        let event = serde_json::from_str(data).unwrap();
+    //     // insert 1000 values of dummy data
+    //     let pad = "PS5 Controller".to_string();
+    //     let data = "{\"AxisChanged\":[\"LeftStickY\",0.010416665,{\"page\":1,\"usage\":49}]}";
+    //     let event = serde_json::from_str(data).unwrap();
 
-        let start = SystemTime::now();
-        let n = 100000;
-        let t = 100;
-        let unix_time = start.duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() - (n as u128) * t;
-        for i in 0..n {
-            let app = match rand::random::<u32>() % 5 {
-                0 => "Skyrim".to_string(),
-                1 => "Minecraft".to_string(),
-                2 => "Hatsune Miku Project Diva 2nd Stage".to_string(),
-                3 => "Muse Dash".to_string(),
-                4 => "Tekken 8".to_string(),
-                _ => "?".to_string(),
-            };
+    //     let start = SystemTime::now();
+    //     let n = 100000;
+    //     let t = 100;
+    //     let unix_time = start.duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() - (n as u128) * t;
+    //     for i in 0..n {
+    //         let app = match rand::random::<u32>() % 5 {
+    //             0 => "Skyrim".to_string(),
+    //             1 => "Minecraft".to_string(),
+    //             2 => "Hatsune Miku Project Diva 2nd Stage".to_string(),
+    //             3 => "Muse Dash".to_string(),
+    //             4 => "Tekken 8".to_string(),
+    //             _ => "?".to_string(),
+    //         };
 
-            let at = unix_time + (i as u128) * t;
-            let rock = Rock {
-                at,
-                pad: pad.clone(),
-                app: app.clone(),
-                event,
-            };
+    //         let at = unix_time + (i as u128) * t;
+    //         let rock = Rock {
+    //             at,
+    //             pad: pad.clone(),
+    //             app: app.clone(),
+    //             event,
+    //         };
 
-            let serialized = serde_json::to_string(&rock).unwrap();
-            // i think doing 100_000 with time::now is too fast
-            // somehow, using the same key gives more than one row
-            db.put(at.to_ne_bytes(), serialized).unwrap();
-            // sleep(Duration::from_millis(100)); // wont do anything besides slow it down. im using unix_time as the key
-            // db.flush().unwrap(); // this will make the db big, but has no data
-        }
-        db.flush().unwrap();
-        let end = SystemTime::now();
-        println!("inserted {n} values in {:?}", end.duration_since(start).unwrap());
-        // exit(0);
-    }
+    //         let serialized = serde_json::to_string(&rock).unwrap();
+    //         // i think doing 100_000 with time::now is too fast
+    //         // somehow, using the same key gives more than one row
+    //         db.put(at.to_ne_bytes(), serialized).unwrap();
+    //         // sleep(Duration::from_millis(100)); // wont do anything besides slow it down. im using unix_time as the key
+    //         // db.flush().unwrap(); // this will make the db big, but has no data
+    //     }
+    //     db.flush().unwrap();
+    //     let end = SystemTime::now();
+    //     println!("inserted {n} values in {:?}", end.duration_since(start).unwrap());
+    //     // exit(0);
+    // }
 
     // do a get test
     // {
