@@ -59,6 +59,8 @@
   let apps: Application[] = [];
   let points: Point[] = [];
   let timeframe: string = "week";
+  let graphLoading: boolean = false;
+  let appsLoading: boolean = false;
 
   let chartData: ChartData<'line', number[], unknown> = {
     labels: points.map((point) => point.label),
@@ -88,25 +90,30 @@
   };
 
   function changeTime() {
+    graphLoading = true;
+    appsLoading = true;
+
     invoke("graph", { timeframe }).then((data) => {
+      graphLoading = false;
       points = data as Point[];
       chartData.labels = points.map((point) => point.label);
       chartData.datasets[0].data = points.map((point) => point.data);
     });
 
     invoke("applications", { timeframe }).then((data) => {
+      appsLoading = false;
       apps = data as Application[];
       apps.sort((a, b) => b.presses - a.presses);
     });
   }
 
   onMount(async () => {
-    apps = await invoke("applications", { timeframe: "week" });
+    apps = await invoke("applications", { timeframe });
     // sort by presses
     apps.sort((a, b) => b.presses - a.presses);
 
     // get points
-    points = await invoke("graph", { timeframe: "week" });
+    points = await invoke("graph", { timeframe });
 
     chartData.labels = points.map((point) => point.label);
     chartData.datasets[0].data = points.map((point) => point.data);
@@ -163,31 +170,39 @@
         </div>
       </div>
 
-      <Line data={chartData} options={{ responsive: true }} />
+      {#if graphLoading}
+        <p>Crunching the numbers just for you :)</p>
+      {:else}
+        <Line data={chartData} options={{ responsive: true }} />
+      {/if}
 
       <h2>Applications</h2>
-      <div class="table-responsive small">
-        <table class="table table-striped table-sm">
-          <thead>
-            <tr>
-              <th scope="col">#</th>
-              <th scope="col">Application</th>
-              <th scope="col">Presses</th>
-              <th scope="col">Combos</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each apps as app, i}
+      {#if appsLoading}
+        <p>Crunching the numbers just for you :)</p>
+      {:else}
+        <div class="table-responsive small">
+          <table class="table table-striped table-sm">
+            <thead>
               <tr>
-                <td>{i + 1}</td>
-                <td><a class="nav-link" href="/">{app.name}</a></td>
-                <td>{app.presses}</td>
-                <td>{app.combos}</td>
+                <th scope="col">#</th>
+                <th scope="col">Application</th>
+                <th scope="col">Presses</th>
+                <th scope="col">Combos</th>
               </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {#each apps as app, i}
+                <tr>
+                  <td>{i + 1}</td>
+                  <td><a class="nav-link" href="/">{app.name}</a></td>
+                  <td>{app.presses}</td>
+                  <td>{app.combos}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
 
       <h2>Heatmap</h2>
     </main>

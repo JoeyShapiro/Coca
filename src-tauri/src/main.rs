@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+use std::{sync::Arc, thread::sleep, time::{SystemTime, UNIX_EPOCH}};
 use chrono::prelude::*;
 
 use rocksdb::{DB, Options};
@@ -57,6 +57,7 @@ struct Point {
 fn _dummy_data(db: &DB) {
     // open default json bad-id: 15.5MiB (111k)
     // open default bin: 2.7MiB (>100k)
+    // open default json: 3.6MiB (100k)
 
     // insert 1000 values of dummy data
     let pad = "PS5 Controller".to_string();
@@ -86,6 +87,7 @@ fn _dummy_data(db: &DB) {
         };
 
         let serialized = bincode::serialize(&rock).unwrap();
+        // let serialized = serde_json::to_string(&rock).unwrap();
         // i think doing 100_000 with time::now is too fast
         // somehow, using the same key gives more than one row
         db.put(at.to_ne_bytes(), serialized).unwrap();
@@ -98,7 +100,7 @@ fn _dummy_data(db: &DB) {
 }
 
 #[tauri::command]
-fn applications(timeframe: String, state: tauri::State<'_, AppState>) -> Vec<Application> {
+async fn applications(timeframe: String, state: tauri::State<'_, AppState>) -> Result<Vec<Application>, ()> {
     let mut apps = Vec::<Application>::new();
 
     let span = match timeframe.as_str() {
@@ -138,7 +140,7 @@ fn applications(timeframe: String, state: tauri::State<'_, AppState>) -> Vec<App
         }
     }
 
-    apps
+    Ok(apps)
 }
 
 const SECOND: u128 = 1_000;
@@ -191,7 +193,7 @@ fn past_time(span: u128, n: u128, form: &str, state: tauri::State<'_, AppState>)
 }
 
 #[tauri::command]
-fn graph(timeframe: String, state: tauri::State<'_, AppState>) -> Vec<Point> {
+async fn graph(timeframe: String, state: tauri::State<'_, AppState>) -> Result<Vec<Point>, ()> {
     let points = match timeframe.as_str() {
         "day" => past_time(DAY, 24, "%l %P", state),
         "week" => past_time(WEEK, 7, "%a", state),
@@ -200,7 +202,7 @@ fn graph(timeframe: String, state: tauri::State<'_, AppState>) -> Vec<Point> {
         _ => past_time(DAY, 24, "%l %P", state),
     };
 
-    points
+    Ok(points)
 }
 
 #[cfg(windows)]
