@@ -81,15 +81,24 @@ fn applications() -> Vec<Application> {
     apps
 }
 
+const SECOND: u128 = 1_000;
+const MINUTE: u128 = 60 * SECOND; // 60_000 ms
+const HOUR: u128 = 60 * MINUTE; // 3_600_000 ms
+const DAY: u128 = 24 * HOUR; // 86_400_000 ms
+const WEEK: u128 = 7 * DAY; // 604_800_000 ms
+const MONTH: u128 = 30 * DAY; // 2_592_000_000 ms
+const YEAR: u128 = 365 * DAY; // 31_536_000_000 ms
+
+
 fn past_day() -> Vec<Point> {
     let unix_time = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
     // get the time 24 hours ago
-    let unix_time_24 = unix_time - 86_400_000;
+    let unix_time_24 = unix_time - DAY;
 
     // could do a vec, but would need one for each day anyway.
     // this would be better for adding hours with no data
     let mut buckets: [Point; 24] = std::array::from_fn(|i| {
-        let at = unix_time_24 + (i as u128 * 3_600_000);
+        let at = unix_time_24 + (i as u128 * HOUR);
 
         // Formats the combined date and time with the specified format string.
         let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(at as u64);
@@ -108,12 +117,11 @@ fn past_day() -> Vec<Point> {
     for row in db.iterator(rocksdb::IteratorMode::Start) {
         let (key, _value) = row.unwrap();
         let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
-        // let at = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(test as u64);
 
         // add the data to the proper bucket
         for i in 0..24 {
             // this will deal with oob
-            if at >= buckets[i].at && at < buckets[i].at + 3_600_000 {
+            if at >= buckets[i].at && at < buckets[i].at + HOUR {
                 buckets[i].data += 1;
                 break;
             }
@@ -124,28 +132,44 @@ fn past_day() -> Vec<Point> {
 }
 
 fn past_week() -> Vec<Point> {
-    let mut points = Vec::new();
-
     let unix_time = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-    // get the time 7 days ago
-    let unix_time_7 = unix_time - 604_800_000;
+    // get the time 24 hours ago
+    let unix_time_7 = unix_time - WEEK;
 
-    for i in 0..7 {
-        let unix_day = unix_time_7 + (i as u128 * 86_400_000);
-        // format to 12 hour time
-        let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(unix_day as u64);
-        let datetime = DateTime::<Utc>::from(time);
+    // could do a vec, but would need one for each day anyway.
+    // this would be better for adding hours with no data
+    let mut buckets: [Point; 24] = std::array::from_fn(|i| {
+        let at = unix_time_7 + (i as u128 * DAY);
+
         // Formats the combined date and time with the specified format string.
-        let timestamp_str = datetime.format("%a").to_string();
+        let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(at as u64);
+        let label = DateTime::<Utc>::from(time).format("%a").to_string();
 
-        points.push(Point {
-            data: i * 10,
-            label: timestamp_str,
-            at: unix_day,
-        });
+        Point { 
+            data: 0, label, at
+        }
+    });
+
+    // open an iter to read the db
+    let path = "coca-rocks.db";
+    let opts = Options::default();
+    let db = DB::open(&opts, path).unwrap();
+
+    for row in db.iterator(rocksdb::IteratorMode::Start) {
+        let (key, _value) = row.unwrap();
+        let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
+
+        // add the data to the proper bucket
+        for i in 0..7 {
+            // this will deal with oob
+            if at >= buckets[i].at && at < buckets[i].at + DAY {
+                buckets[i].data += 1;
+                break;
+            }
+        }
     }
 
-    points
+    buckets.to_vec()
 }
 
 #[tauri::command]
@@ -240,11 +264,6 @@ fn main() {
     //     let end = SystemTime::now();
     //     println!("inserted {n} values in {:?}", end.duration_since(start).unwrap());
     //     // exit(0);
-    // }
-
-    // do a get test
-    // {
-
     // }
 
     // run gilrs in a separate thread
