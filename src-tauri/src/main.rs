@@ -50,8 +50,17 @@ struct Point {
 }
 
 #[tauri::command]
-fn applications() -> Vec<Application> {
+fn applications(timeframe: String) -> Vec<Application> {
     let mut apps = Vec::<Application>::new();
+
+    let span = match timeframe.as_str() {
+        "day" => DAY,
+        "week" => WEEK,
+        "month" => MONTH,
+        "year" => YEAR,
+        _ => DAY,
+    };
+    let start = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() - span;
     
     // open an iter to read the db
     let path = "coca-rocks.db";
@@ -61,8 +70,14 @@ fn applications() -> Vec<Application> {
     let iter = db.iterator(rocksdb::IteratorMode::Start);
     for row in iter {
         let (key, value) = row.unwrap();
-        let value = String::from_utf8(value.into_vec()).unwrap();
 
+        // skip if to old
+        let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
+        if at < start {
+            continue
+        }
+
+        let value = String::from_utf8(value.into_vec()).unwrap();
         let rock: Rock = serde_json::from_str(&value).unwrap();
 
         let app = apps.iter_mut().find(|app| app.name == rock.app);

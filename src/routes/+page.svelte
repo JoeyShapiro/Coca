@@ -87,16 +87,21 @@
     ],
   };
 
-  function updateGraph() {
+  function changeTime() {
     invoke("graph", { timeframe }).then((data) => {
       points = data as Point[];
       chartData.labels = points.map((point) => point.label);
       chartData.datasets[0].data = points.map((point) => point.data);
     });
+
+    invoke("applications", { timeframe }).then((data) => {
+      apps = data as Application[];
+      apps.sort((a, b) => b.presses - a.presses);
+    });
   }
 
   onMount(async () => {
-    apps = await invoke("applications");
+    apps = await invoke("applications", { timeframe: "week" });
     // sort by presses
     apps.sort((a, b) => b.presses - a.presses);
 
@@ -130,25 +135,25 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'day' ? 'active' : '' }" on:click={() => {timeframe = 'day'; updateGraph()}}>
+                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'day' ? 'active' : '' }" on:click={() => {timeframe = 'day'; changeTime()}}>
                   <svg class="bi me-2 opacity-50"><use href="#sun-fill"></use></svg>
                   Past day
                 </button>
               </li>
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'week' ? 'active' : '' }" on:click={() => {timeframe = 'week'; updateGraph()}}>
+                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'week' ? 'active' : '' }" on:click={() => {timeframe = 'week'; changeTime()}}>
                   <svg class="bi me-2 opacity-50"><use href="#sun-fill"></use></svg>
                   Past week
                 </button>
               </li>
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'month' ? 'active' : '' }" on:click={() => {timeframe = 'month'; updateGraph()}}>
+                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'month' ? 'active' : '' }" on:click={() => {timeframe = 'month'; changeTime()}}>
                   <svg class="bi me-2 opacity-50"><use href="#moon-stars-fill"></use></svg>
                   Past month
                 </button>
               </li>
               <li>
-                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'year' ? 'active' : '' }" on:click={() => {timeframe = 'year'; updateGraph()}}>
+                <button type="button" class="dropdown-item d-flex align-items-center { timeframe === 'year' ? 'active' : '' }" on:click={() => {timeframe = 'year'; changeTime()}}>
                   <svg class="bi me-2 opacity-50"><use href="#circle-half"></use></svg>
                   Past Year
                 </button>
