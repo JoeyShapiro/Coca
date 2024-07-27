@@ -89,25 +89,22 @@ const WEEK: u128 = 7 * DAY; // 604_800_000 ms
 const MONTH: u128 = 30 * DAY; // 2_592_000_000 ms
 const YEAR: u128 = 365 * DAY; // 31_536_000_000 ms
 
+fn past_time(span: u128, n: u128, form: &str) -> Vec<Point> {
+    let start = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() - span;
 
-fn past_day() -> Vec<Point> {
-    let unix_time = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-    // get the time 24 hours ago
-    let unix_time_24 = unix_time - DAY;
-
-    // could do a vec, but would need one for each day anyway.
-    // this would be better for adding hours with no data
-    let mut buckets: [Point; 24] = std::array::from_fn(|i| {
-        let at = unix_time_24 + (i as u128 * HOUR);
+    // create the buckets
+    let mut buckets: Vec<Point> = Vec::with_capacity(n as usize);
+    for i in 0..n {
+        let at = start + (i as u128 * (span / n));
 
         // Formats the combined date and time with the specified format string.
         let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(at as u64);
-        let label = DateTime::<Utc>::from(time).format("%l %P").to_string();
+        let label = DateTime::<Utc>::from(time).format(form).to_string();
 
-        Point { 
+        buckets.push(Point { 
             data: 0, label, at
-        }
-    });
+        })
+    }
 
     // open an iter to read the db
     let path = "coca-rocks.db";
@@ -119,67 +116,26 @@ fn past_day() -> Vec<Point> {
         let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
 
         // add the data to the proper bucket
-        for i in 0..24 {
+        for i in 0..n as usize {
             // this will deal with oob
-            if at >= buckets[i].at && at < buckets[i].at + HOUR {
+            if at >= buckets[i].at && at < buckets[i].at + (span / n) {
                 buckets[i].data += 1;
                 break;
             }
         }
     }
 
-    buckets.to_vec()
-}
-
-fn past_week() -> Vec<Point> {
-    let unix_time = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-    // get the time 24 hours ago
-    let unix_time_7 = unix_time - WEEK;
-
-    // could do a vec, but would need one for each day anyway.
-    // this would be better for adding hours with no data
-    let mut buckets: [Point; 24] = std::array::from_fn(|i| {
-        let at = unix_time_7 + (i as u128 * DAY);
-
-        // Formats the combined date and time with the specified format string.
-        let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_millis(at as u64);
-        let label = DateTime::<Utc>::from(time).format("%a").to_string();
-
-        Point { 
-            data: 0, label, at
-        }
-    });
-
-    // open an iter to read the db
-    let path = "coca-rocks.db";
-    let opts = Options::default();
-    let db = DB::open(&opts, path).unwrap();
-
-    for row in db.iterator(rocksdb::IteratorMode::Start) {
-        let (key, _value) = row.unwrap();
-        let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
-
-        // add the data to the proper bucket
-        for i in 0..7 {
-            // this will deal with oob
-            if at >= buckets[i].at && at < buckets[i].at + DAY {
-                buckets[i].data += 1;
-                break;
-            }
-        }
-    }
-
-    buckets.to_vec()
+    buckets
 }
 
 #[tauri::command]
 fn graph(timeframe: String) -> Vec<Point> {
     let points = match timeframe.as_str() {
-        "day" => past_day(),
-        "week" => past_week(),
-        // "month" => past_month(),
-        // "year" => past_year(),
-        _ => past_day(),
+        "day" => past_time(DAY, 24, "%l %P"),
+        "week" => past_time(WEEK, 7, "%a"),
+        "month" => past_time(MONTH, 30, "%e"), // hmmmm
+        "year" => past_time(YEAR, 12, "%b"),
+        _ => past_time(DAY, 24, "%l %P"),
     };
 
     points
