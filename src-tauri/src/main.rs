@@ -9,6 +9,7 @@ use rocksdb::{DB, Options};
 use gilrs::{Event, Gilrs};
 use serde::{Deserialize, Serialize};
 
+use tauri::App;
 #[cfg(windows)]
 use windows::{
     core::*,
@@ -35,6 +36,13 @@ fn greet(name: &str) -> String {
 struct Application {
     name: String,
     controller: String,
+    presses: i32,
+    combos: i32,
+}
+
+#[derive(Serialize)]
+struct AppStats {
+    name: String,
     presses: i32,
     combos: i32,
 }
@@ -205,6 +213,48 @@ async fn graph(timeframe: String, state: tauri::State<'_, AppState>) -> Result<V
     Ok(points)
 }
 
+#[tauri::command]
+async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppState>) -> Result<AppStats, ()> {
+    let mut app =  AppStats {
+        name: app,
+        presses: 0,
+        combos: 0,
+    };
+
+    let span = match timeframe.as_str() {
+        "day" => DAY,
+        "week" => WEEK,
+        "month" => MONTH,
+        "year" => YEAR,
+        _ => DAY,
+    };
+    
+    let start = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() - span;
+
+    let db = state.0.lock().unwrap().as_ref().unwrap().db.clone();
+
+    for row in db.iterator(rocksdb::IteratorMode::End) {
+        let (key, value) = row.unwrap();
+        let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
+
+        // check if we are no longer in bounds
+        if at < start {
+            break;
+        }
+
+        // let value = String::from_utf8(value.into_vec()).unwrap();
+        let rock: Rock = bincode::deserialize(&value.into_vec()).unwrap();
+        if rock.app != app.name {
+            continue;
+        }
+
+        app.presses += 1;
+    }
+
+
+    Ok(app)
+}
+
 #[cfg(windows)]
 fn get_foreground_process() -> Result<String> {
     unsafe {
@@ -282,7 +332,7 @@ fn main() {
 
     tauri::Builder::default()
         .manage(AppState(std::sync::Arc::new(std::sync::Mutex::new(Some(Settings { db })))))
-        .invoke_handler(tauri::generate_handler![greet, applications, graph])
+        .invoke_handler(tauri::generate_handler![greet, applications, graph, app_stats])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
