@@ -1,7 +1,7 @@
 <div class="sidebar border border-right col-md-3 col-lg-2 p-0 bg-body-tertiary">
-    <div class="offcanvas-md offcanvas-end bg-body-tertiary" tabindex="-1" id="sidebarMenu" aria-labelledby="sidebarMenuLabel">
-        <div class="offcanvas-body d-md-flex flex-column p-0 pt-lg-3 overflow-y-auto">
-        <ul class="nav flex-column">
+    <div class="offcanvas-md offcanvas-end bg-body-tertiary h-100" tabindex="-1" id="sidebarMenu" aria-labelledby="sidebarMenuLabel">
+        <div class="offcanvas-body d-md-flex flex-column p-0 pt-lg-3 overflow-y-auto h-100">
+        <ul class="nav flex-column mb-auto">
             <li class="nav-item">
             <a class="nav-link d-flex align-items-center gap-2 link-secondary" href="#">
                 <img src="/overview.svg" class="bi" alt="overview" />
@@ -27,6 +27,14 @@
             </a>
             </li>
         </ul>
+            
+            <div class="mt-auto p-3">
+                <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis"
+                    href="https://github.com/JoeyShapiro" target="_blank" rel="noopener noreferrer">
+                    <img src="/github-mark.svg" class="bi" alt="plug" />
+                    JoeyShapiro
+                </a>
+            </div>
         </div>
     </div>
 </div>
