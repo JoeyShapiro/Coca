@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{borrow::Borrow, cell::RefCell, process::exit, rc::Rc, sync::{atomic::Ordering, Arc}, time::{SystemTime, UNIX_EPOCH}};
+use std::{sync::{atomic::Ordering, Arc}, time::{SystemTime, UNIX_EPOCH}};
 use chrono::prelude::*;
 
 use rocksdb::{DB, Options};
@@ -415,7 +415,14 @@ fn main() {
                     std::process::exit(0);
                 }
                 "toggle" => {
-                    let window = app.get_window("main").unwrap();
+                    let window = app.get_window("main").unwrap_or_else(|| {
+                        WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
+                            .focused(true)
+                            // .size(800.0, 600.0)
+                            .build()
+                            .unwrap()
+                    });
+
                     let visible_v = visible_c.load(Ordering::SeqCst);
                     if visible_v {
                         window.hide().unwrap();
@@ -436,6 +443,10 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app_handle, event| match event {
+            // tauri::Event::Window(tauri::WindowEvent::Resized { size }) => {
+            //     println!("window resized to {:?}", size);
+            // }
+
             tauri::RunEvent::ExitRequested { api, .. } => {
               api.prevent_exit();
             }
