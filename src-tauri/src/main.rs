@@ -377,6 +377,7 @@ fn main() {
 
     let visible = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let visible_c = Arc::clone(&visible);
+    let visible_c1 = Arc::clone(&visible);
     let quit = CustomMenuItem::new("quit".to_string(), "Quit");
     let hide = CustomMenuItem::new("toggle".to_string(), "Hide"); // i know the state
     let tray_menu = SystemTrayMenu::new()
@@ -416,11 +417,16 @@ fn main() {
                 }
                 "toggle" => {
                     let window = app.get_window("main").unwrap_or_else(|| {
-                        WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
+                        let w = WindowBuilder::new(app, "main", tauri::WindowUrl::App("index.html".into()))
+                            .title("main")
                             .focused(true)
                             // .size(800.0, 600.0)
                             .build()
-                            .unwrap()
+                            .unwrap();
+
+                        w.hide().unwrap(); // hmm
+
+                        w
                     });
 
                     let visible_v = visible_c.load(Ordering::SeqCst);
@@ -442,13 +448,20 @@ fn main() {
         .invoke_handler(tauri::generate_handler![greet, applications, graph, app_stats])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_app_handle, event| match event {
+        .run(move |app_handle, event| match event {
             // tauri::Event::Window(tauri::WindowEvent::Resized { size }) => {
             //     println!("window resized to {:?}", size);
             // }
 
             tauri::RunEvent::ExitRequested { api, .. } => {
-              api.prevent_exit();
+                api.prevent_exit();
+
+                // set the tray icon to invisible
+                let tray = app_handle.tray_handle();
+                let item = tray.get_item("toggle");
+                item.set_title("Show").unwrap();
+
+                visible_c1.store(false, Ordering::SeqCst);
             }
             _ => {}
         });
