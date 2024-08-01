@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{sync::Arc, thread::sleep, time::{SystemTime, UNIX_EPOCH}};
+use std::{process::exit, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
 use chrono::prelude::*;
 
 use rocksdb::{DB, Options};
@@ -9,7 +9,6 @@ use rocksdb::{DB, Options};
 use gilrs::{Event, Gilrs};
 use serde::{Deserialize, Serialize};
 
-use tauri::App;
 #[cfg(windows)]
 use windows::{
     core::*,
@@ -41,10 +40,23 @@ struct Application {
 }
 
 #[derive(Serialize)]
+struct Button {
+    name: gilrs::Button,
+    presses: i32,
+}
+
+#[derive(Serialize)]
+struct Combo {
+    name: String,
+    pattern: Vec<String>,
+    presses: i32,
+}
+
+#[derive(Serialize)]
 struct AppStats {
     name: String,
-    presses: i32,
-    combos: i32,
+    presses: Vec<Button>,
+    combos: Vec<Combo>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -69,8 +81,18 @@ fn _dummy_data(db: &DB) {
 
     // insert 1000 values of dummy data
     let pad = "PS5 Controller".to_string();
-    let data = "{\"AxisChanged\":[\"LeftStickY\",0.010416665,{\"page\":1,\"usage\":49}]}";
-    let event = serde_json::from_str(data).unwrap();
+    let datas = ["{\"AxisChanged\":[\"LeftStickY\",0.010416665,{\"page\":1,\"usage\":49}]}",
+        "{\"ButtonPressed\":[\"Unknown\",{\"page\":9,\"usage\":8}]}",
+        "{\"ButtonPressed\":[\"DPadDown\",{\"page\":9,\"usage\":2}]}",
+        "{\"ButtonPressed\":[\"DPadLeft\",{\"page\":9,\"usage\":1}]}",
+        "{\"ButtonPressed\":[\"DPadRight\",{\"page\":9,\"usage\":3}]}",
+        "{\"ButtonPressed\":[\"DPadUp\",{\"page\":9,\"usage\":0}]}",
+
+        "{\"ButtonPressed\":[\"North\",{\"page\":9,\"usage\":4}]}",
+        "{\"ButtonPressed\":[\"East\",{\"page\":9,\"usage\":5}]}",
+        "{\"ButtonPressed\":[\"South\",{\"page\":9,\"usage\":6}]}",
+        "{\"ButtonPressed\":[\"West\",{\"page\":9,\"usage\":7}]}",
+    ];
 
     let start = SystemTime::now();
     let n = 100000;
@@ -85,6 +107,9 @@ fn _dummy_data(db: &DB) {
             4 => "Tekken 8".to_string(),
             _ => "?".to_string(),
         };
+
+        let data = datas[rand::random::<usize>() % datas.len()];
+        let event = serde_json::from_str(data).unwrap();
 
         let at = unix_time + (i as u128) * t;
         let rock = Rock {
@@ -217,8 +242,8 @@ async fn graph(timeframe: String, state: tauri::State<'_, AppState>) -> Result<V
 async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppState>) -> Result<AppStats, ()> {
     let mut app =  AppStats {
         name: app,
-        presses: 0,
-        combos: 0,
+        presses: Vec::new(),
+        combos: Vec::new(),
     };
 
     let span = match timeframe.as_str() {
@@ -248,9 +273,25 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
             continue;
         }
 
-        app.presses += 1;
-    }
+        // prec.
+        // add combo
+        // match other events
+        // use gilrs svg
 
+        // this will be auto formatted by serde when going to js
+        // this really has all the events i care about
+        if let gilrs::EventType::ButtonPressed(button, _code) = rock.event {
+            let pressed = app.presses.iter_mut().find(|press| press.name == button);
+            if let Some(pressed) = pressed {
+                pressed.presses += 1;
+            } else {
+                app.presses.push(Button {
+                    name: button,
+                    presses: 1,
+                });
+            }
+        }
+    }
 
     Ok(app)
 }
@@ -287,6 +328,9 @@ fn main() {
     // open default: 15.5MiB (111k)
     let db = DB::open(&opts, path).unwrap();
     let db = Arc::new(db);
+
+    // _dummy_data(&db);
+    // exit(0);
 
     // run gilrs in a separate thread
     let db_put = Arc::clone(&db);

@@ -11,12 +11,34 @@
 
     // TODO i could dupe everything, but that would be pointless. this is a summary
 
+    class Button {
+        name: string;
+        presses: number;
+
+        constructor(name: string, presses: number) {
+            this.name = name;
+            this.presses = presses;
+        }
+    }
+
+    class Combo {
+        name: string;
+        pattern: string;
+        presses: number;
+
+        constructor(name: string, pattern: string, presses: number) {
+            this.name = name;
+            this.pattern = pattern;
+            this.presses = presses;
+        }
+    }
+
     class AppStats {
         app: string;
-        presses: number;
-        combos: number;
+        presses: Button[];
+        combos: Combo[];
 
-        constructor(app: string, presses: number, combos: number) {
+        constructor(app: string, presses: Button[], combos: Combo[]) {
             this.app = app;
             this.presses = presses;
             this.combos = combos;
@@ -24,7 +46,7 @@
     }
 
     let timeframe: string = "week";
-    let stats: AppStats = new AppStats("", 0, 0);
+    let stats: AppStats = new AppStats("", [], []);
 
     function changeTime() {
         invoke("app_stats", { app: data.app, timeframe }).then((data) => {
@@ -35,6 +57,7 @@
     onMount(() => {
         invoke("app_stats", { app: data.app, timeframe }).then((data) => {
             stats = data as AppStats;
+            console.log(stats);
         });
     });
 </script>
@@ -49,6 +72,7 @@
           <h1 class="h2">{data.app}</h1>
           <div class="btn-toolbar mb-2 mb-md-0">
             <div class="btn-group me-2">
+                <button type="button" class="btn btn-sm btn-outline-primary">Add Combo</button>
               <button type="button" class="btn btn-sm btn-outline-secondary">Share</button>
               <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
             </div>
@@ -88,23 +112,32 @@
           </div>
         </div>
 
-        <div class="row">
-            <div class="col-md-4">
+        <div class="row p-2">
+            <h3 class="h2">Presses</h3>
+            {#each stats.presses as press}
+            <div class="col-md-2 p-2">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Presses</h5>
-                        <p class="card-text">{stats.presses}</p>
+                        <h5 class="card-title">{press.name}</h5>
+                        <p class="card-text">{press.presses}</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            {/each}
+        </div>
+        <div class="row p-2">
+            <h3 class="h2">Combos</h3>
+            {#each stats.combos as combo}
+            <div class="col-md-2 p-2">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Combos</h5>
-                        <p class="card-text">{stats.combos}</p>
+                        <h5 class="card-title">{combo.name}</h5>
+                        <p class="card-text">{combo.pattern}</p>
+                        <p class="card-text">{combo.presses}</p>
                     </div>
                 </div>
             </div>
+            {/each}
         </div>
       </main>
     </div>
