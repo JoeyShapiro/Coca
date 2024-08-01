@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{process::exit, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+use std::{borrow::Borrow, cell::RefCell, process::exit, rc::Rc, sync::{atomic::Ordering, Arc}, time::{SystemTime, UNIX_EPOCH}};
 use chrono::prelude::*;
 
 use rocksdb::{DB, Options};
@@ -9,6 +9,7 @@ use rocksdb::{DB, Options};
 use gilrs::{Event, Gilrs};
 use serde::{Deserialize, Serialize};
 
+use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem, WindowBuilder};
 #[cfg(windows)]
 use windows::{
     core::*,
@@ -374,9 +375,70 @@ fn main() {
         }
     });
 
+    let visible = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let visible_c = Arc::clone(&visible);
+    let quit = CustomMenuItem::new("quit".to_string(), "Quit");
+    let hide = CustomMenuItem::new("toggle".to_string(), "Hide"); // i know the state
+    let tray_menu = SystemTrayMenu::new()
+        .add_item(quit)
+        .add_native_item(SystemTrayMenuItem::Separator)
+        .add_item(hide);
+
     tauri::Builder::default()
+        .system_tray(SystemTray::new().with_menu(tray_menu))
+        .on_system_tray_event(move |app, event| match event {
+            SystemTrayEvent::LeftClick {
+                position: _,
+                size: _,
+                ..
+            } => {
+                println!("system tray received a left click");
+            }
+            SystemTrayEvent::RightClick {
+                position: _,
+                size: _,
+                ..
+            } => {
+                println!("system tray received a right click");
+            }
+            SystemTrayEvent::DoubleClick {
+                position: _,
+                size: _,
+                ..
+            } => {
+                println!("system tray received a double click");
+            }
+            SystemTrayEvent::MenuItemClick { id, .. } => {
+                let item_handle = app.tray_handle().get_item(&id);
+                match id.as_str() {
+                "quit" => {
+                    std::process::exit(0);
+                }
+                "toggle" => {
+                    let window = app.get_window("main").unwrap();
+                    let visible_v = visible_c.load(Ordering::SeqCst);
+                    if visible_v {
+                        window.hide().unwrap();
+                        item_handle.set_title("Show").unwrap();
+                    } else {
+                        window.show().unwrap();
+                        item_handle.set_title("Hide").unwrap();
+                    }
+                    visible_c.store(!visible_v, Ordering::SeqCst);
+                }
+                _ => {}
+                }
+            }
+            _ => {}
+        })
         .manage(AppState(std::sync::Arc::new(std::sync::Mutex::new(Some(Settings { db })))))
         .invoke_handler(tauri::generate_handler![greet, applications, graph, app_stats])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| match event {
+            tauri::RunEvent::ExitRequested { api, .. } => {
+              api.prevent_exit();
+            }
+            _ => {}
+        });
 }
