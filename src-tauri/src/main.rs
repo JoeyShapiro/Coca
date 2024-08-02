@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{sync::{atomic::Ordering, Arc}, thread::sleep, time::{SystemTime, UNIX_EPOCH}};
+use std::{sync::{atomic::Ordering, Arc}, time::{SystemTime, UNIX_EPOCH}};
 use chrono::prelude::*;
 
 use rocksdb::{DB, Options};
@@ -278,7 +278,7 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
         // add combo
         // match other events
         // use gilrs svg
-        // get app name
+        // get app name for mac, cause fuck it
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about
@@ -324,6 +324,8 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
 //     }
 // }
 
+static FOCUSED_APP: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
 #[cfg(windows)]
 unsafe extern "system" fn win_event_proc(
     _h_win_event_hook: windows::Win32::UI::Accessibility::HWINEVENTHOOK,
@@ -337,6 +339,9 @@ unsafe extern "system" fn win_event_proc(
     let mut title = [0u16; 256];
     let len = windows::Win32::UI::WindowsAndMessaging::GetWindowTextW(hwnd, &mut title);
     let title = String::from_utf16_lossy(&title[..len as usize]);
+
+    let mut last_window = FOCUSED_APP.lock().unwrap();
+    *last_window = title.clone();
     
     println!("Focus changed to: {}", title);
 }
@@ -349,32 +354,37 @@ fn main() {
     let db = DB::open(&opts, path).unwrap();
     let db = Arc::new(db);
 
-    #[cfg(windows)]
-    unsafe {
-        let hook = windows::Win32::UI::Accessibility::SetWinEventHook(
-            windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_FOREGROUND,
-            windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_FOREGROUND,
-            None,
-            Some(win_event_proc),
-            0,
-            0,
-            windows::Win32::UI::WindowsAndMessaging::WINEVENT_OUTOFCONTEXT,
-        );
-
-        if hook.0 == std::ptr::null_mut() {
-            println!("Failed to set event hook");
-            std::process::exit(1);
-        }
-
-        println!("Listening for focus changes. Press Ctrl+C to exit.");
-
-        // Message loop
-        let mut msg = std::mem::zeroed();
-        while windows::Win32::UI::WindowsAndMessaging::GetMessageW(&mut msg, windows::Win32::Foundation::HWND(std::ptr::null_mut()), 0, 0).into() {
-            windows::Win32::UI::WindowsAndMessaging::TranslateMessage(&msg);
-            windows::Win32::UI::WindowsAndMessaging::DispatchMessageW(&msg);
-        }
+    {
+        let mut last_window = FOCUSED_APP.lock().unwrap();
+        *last_window = "?".to_string();
     }
+
+    #[cfg(windows)]
+    let _win_message_thread = std::thread::spawn(move || {
+        unsafe {
+            let hook = windows::Win32::UI::Accessibility::SetWinEventHook(
+                windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_FOREGROUND,
+                windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_FOREGROUND,
+                None,
+                Some(win_event_proc),
+                0,
+                0,
+                windows::Win32::UI::WindowsAndMessaging::WINEVENT_OUTOFCONTEXT,
+            );
+    
+            if hook.0 == std::ptr::null_mut() {
+                println!("Failed to set event hook");
+                std::process::exit(1);
+            }
+    
+            // Message loop
+            let mut msg = std::mem::zeroed();
+            while windows::Win32::UI::WindowsAndMessaging::GetMessageW(&mut msg, windows::Win32::Foundation::HWND(std::ptr::null_mut()), 0, 0).into() {
+                windows::Win32::UI::WindowsAndMessaging::TranslateMessage(&msg);
+                windows::Win32::UI::WindowsAndMessaging::DispatchMessageW(&msg);
+            }
+        }
+    });
 
     // _dummy_data(&db);
     // exit(0);
@@ -390,7 +400,6 @@ fn main() {
         }
 
         let mut pad = "?".to_string();
-        let mut app = "?".to_string();
 
         loop {
             // Examine new events
@@ -402,6 +411,8 @@ fn main() {
                     
                     println!("connected: {:?}; power: {:?}; ff: {:?}", pad, gamepad.power_info(), gamepad.is_ff_supported());
                 }
+
+                let app = FOCUSED_APP.lock().unwrap();
 
                 let unix_time = time.duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
                 let rock = Rock {
