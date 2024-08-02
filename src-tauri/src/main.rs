@@ -10,14 +10,6 @@ use gilrs::{Event, Gilrs};
 use serde::{Deserialize, Serialize};
 
 use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem, WindowBuilder};
-// #[cfg(windows)]
-// use windows::{
-//     core::*,
-//     Win32::Foundation::*,
-//     Win32::System::Threading::*,
-//     Win32::UI::WindowsAndMessaging::*,
-//     Win32::System::ProcessStatus::*,
-// };
 
 struct Settings {
     db: Arc<DB>,
@@ -298,32 +290,6 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
     Ok(app)
 }
 
-// i dont think i need this anymore
-// #[cfg(windows)]
-// fn get_foreground_process() -> Result<String, ()> {
-//     unsafe {
-//         let window = GetForegroundWindow();
-//         if window.0 == 0 {
-//             return Ok(Error::from_win32());
-//         }
-
-//         let mut process_id = 0;
-//         GetWindowThreadProcessId(window, Some(&mut process_id));
-
-//         let process_handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, process_id)?;
-
-//         let mut buffer = [0u16; 260];
-//         let size = GetModuleFileNameExW(process_handle, None, &mut buffer);
-        
-//         if size == 0 {
-//             return Ok(Error::from_win32());
-//         }
-
-//         let process_name = String::from_utf16_lossy(&buffer[..size as usize]);
-//         Ok(process_name)
-//     }
-// }
-
 static FOCUSED_APP: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
 
 #[cfg(windows)]
@@ -351,8 +317,7 @@ fn main() {
     let mut opts = Options::default();
     opts.create_if_missing(true);
     // open default: 15.5MiB (111k)
-    let db = DB::open(&opts, path).unwrap();
-    let db = Arc::new(db);
+    let db = Arc::new(DB::open(&opts, path).unwrap());
 
     {
         let mut last_window = FOCUSED_APP.lock().unwrap();
