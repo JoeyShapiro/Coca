@@ -10,14 +10,14 @@ use gilrs::{Event, Gilrs};
 use serde::{Deserialize, Serialize};
 
 use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem, WindowBuilder};
-#[cfg(windows)]
-use windows::{
-    core::*,
-    Win32::Foundation::*,
-    Win32::System::Threading::*,
-    Win32::UI::WindowsAndMessaging::*,
-    Win32::System::ProcessStatus::*,
-};
+// #[cfg(windows)]
+// use windows::{
+//     core::*,
+//     Win32::Foundation::*,
+//     Win32::System::Threading::*,
+//     Win32::UI::WindowsAndMessaging::*,
+//     Win32::System::ProcessStatus::*,
+// };
 
 struct Settings {
     db: Arc<DB>,
@@ -298,36 +298,36 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
     Ok(app)
 }
 
-#[cfg(windows)]
-fn get_foreground_process() -> Result<String> {
-    unsafe {
-        let window = GetForegroundWindow();
-        if window.0 == 0 {
-            return Err(Error::from_win32());
-        }
+// #[cfg(windows)]
+// fn get_foreground_process() -> Result<String, ()> {
+//     unsafe {
+//         let window = GetForegroundWindow();
+//         if window.0 == 0 {
+//             return Ok(Error::from_win32());
+//         }
 
-        let mut process_id = 0;
-        GetWindowThreadProcessId(window, Some(&mut process_id));
+//         let mut process_id = 0;
+//         GetWindowThreadProcessId(window, Some(&mut process_id));
 
-        let process_handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, process_id)?;
+//         let process_handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, process_id)?;
 
-        let mut buffer = [0u16; 260];
-        let size = GetModuleFileNameExW(process_handle, None, &mut buffer);
+//         let mut buffer = [0u16; 260];
+//         let size = GetModuleFileNameExW(process_handle, None, &mut buffer);
         
-        if size == 0 {
-            return Err(Error::from_win32());
-        }
+//         if size == 0 {
+//             return Ok(Error::from_win32());
+//         }
 
-        let process_name = String::from_utf16_lossy(&buffer[..size as usize]);
-        Ok(process_name)
-    }
-}
+//         let process_name = String::from_utf16_lossy(&buffer[..size as usize]);
+//         Ok(process_name)
+//     }
+// }
 
 #[cfg(windows)]
 unsafe extern "system" fn win_event_proc(
-    _h_win_event_hook: windows::Win32::UI::WindowsAndMessaging::HWINEVENTHOOK,
+    _h_win_event_hook: windows::Win32::UI::Accessibility::HWINEVENTHOOK,
     _event: u32,
-    hwnd: HWND,
+    hwnd: windows::Win32::Foundation::HWND,
     _id_object: i32,
     _id_child: i32,
     _id_event_thread: u32,
@@ -350,26 +350,26 @@ fn main() {
 
     #[cfg(windows)]
     unsafe {
-        let hook = SetWinEventHook(
-            EVENT_SYSTEM_FOREGROUND,
-            EVENT_SYSTEM_FOREGROUND,
+        let hook = windows::Win32::UI::Accessibility::SetWinEventHook(
+            windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_FOREGROUND,
+            windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_FOREGROUND,
             None,
             Some(win_event_proc),
             0,
             0,
-            WINEVENT_OUTOFCONTEXT,
+            windows::Win32::UI::WindowsAndMessaging::WINEVENT_OUTOFCONTEXT,
         );
 
-        if hook.0 == 0 {
+        if hook.0 == std::ptr::null_mut() {
             println!("Failed to set event hook");
-            return Ok(());
+            std::process::exit(1);
         }
 
         println!("Listening for focus changes. Press Ctrl+C to exit.");
 
         // Message loop
         let mut msg = std::mem::zeroed();
-        while windows::Win32::UI::WindowsAndMessaging::GetMessageW(&mut msg, HWND(0), 0, 0).into() {
+        while windows::Win32::UI::WindowsAndMessaging::GetMessageW(&mut msg, windows::Win32::Foundation::HWND(std::ptr::null_mut()), 0, 0).into() {
             windows::Win32::UI::WindowsAndMessaging::TranslateMessage(&msg);
             windows::Win32::UI::WindowsAndMessaging::DispatchMessageW(&msg);
         }
