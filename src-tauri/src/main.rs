@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{sync::{atomic::Ordering, Arc}, time::{SystemTime, UNIX_EPOCH}};
+use std::{sync::{atomic::Ordering, Arc}, thread::sleep, time::{SystemTime, UNIX_EPOCH}};
 use chrono::prelude::*;
 
 use rocksdb::{DB, Options};
@@ -298,6 +298,7 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
     Ok(app)
 }
 
+// i dont think i need this anymore
 // #[cfg(windows)]
 // fn get_foreground_process() -> Result<String, ()> {
 //     unsafe {
@@ -393,7 +394,7 @@ fn main() {
 
         loop {
             // Examine new events
-            while let Some(Event { id, event, time }) = gilrs.next_event() {
+            while let Some(Event { id, event, time }) = gilrs.next_event_blocking(Some(std::time::Duration::from_millis(100))) {
                 // check if it is a connection event
                 if event == gilrs::ev::EventType::Connected {
                     let gamepad = gilrs.gamepad(id);
