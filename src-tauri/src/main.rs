@@ -278,6 +278,7 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
         // add combo
         // match other events
         // use gilrs svg
+        // get app name
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about
@@ -322,6 +323,23 @@ fn get_foreground_process() -> Result<String> {
     }
 }
 
+#[cfg(windows)]
+unsafe extern "system" fn win_event_proc(
+    _h_win_event_hook: windows::Win32::UI::WindowsAndMessaging::HWINEVENTHOOK,
+    _event: u32,
+    hwnd: HWND,
+    _id_object: i32,
+    _id_child: i32,
+    _id_event_thread: u32,
+    _dwms_event_time: u32,
+) {
+    let mut title = [0u16; 256];
+    let len = windows::Win32::UI::WindowsAndMessaging::GetWindowTextW(hwnd, &mut title);
+    let title = String::from_utf16_lossy(&title[..len as usize]);
+    
+    println!("Focus changed to: {}", title);
+}
+
 fn main() {
     let path = "coca-rocks.db";
     let mut opts = Options::default();
@@ -329,6 +347,33 @@ fn main() {
     // open default: 15.5MiB (111k)
     let db = DB::open(&opts, path).unwrap();
     let db = Arc::new(db);
+
+    #[cfg(windows)]
+    unsafe {
+        let hook = SetWinEventHook(
+            EVENT_SYSTEM_FOREGROUND,
+            EVENT_SYSTEM_FOREGROUND,
+            None,
+            Some(win_event_proc),
+            0,
+            0,
+            WINEVENT_OUTOFCONTEXT,
+        );
+
+        if hook.0 == 0 {
+            println!("Failed to set event hook");
+            return Ok(());
+        }
+
+        println!("Listening for focus changes. Press Ctrl+C to exit.");
+
+        // Message loop
+        let mut msg = std::mem::zeroed();
+        while windows::Win32::UI::WindowsAndMessaging::GetMessageW(&mut msg, HWND(0), 0, 0).into() {
+            windows::Win32::UI::WindowsAndMessaging::TranslateMessage(&msg);
+            windows::Win32::UI::WindowsAndMessaging::DispatchMessageW(&msg);
+        }
+    }
 
     // _dummy_data(&db);
     // exit(0);
@@ -378,12 +423,12 @@ fn main() {
     let visible = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let visible_c = Arc::clone(&visible);
     let visible_c1 = Arc::clone(&visible);
-    let quit = CustomMenuItem::new("quit".to_string(), "Quit");
     let hide = CustomMenuItem::new("toggle".to_string(), "Hide"); // i know the state
+    let quit = CustomMenuItem::new("quit".to_string(), "Quit");
     let tray_menu = SystemTrayMenu::new()
-        .add_item(quit)
+        .add_item(hide)
         .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(hide);
+        .add_item(quit);
 
     tauri::Builder::default()
         .system_tray(SystemTray::new().with_menu(tray_menu))

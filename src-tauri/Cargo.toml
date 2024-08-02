@@ -16,7 +16,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 gilrs = { version = "0.10.3", features = ["serde-serialize"] }
 chrono = "0.4"
-windows = "0.58.0"
+windows = { version = "0.58.0", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32"] }
 rocksdb = "0.22.0"
 rand = "0.8.4"
 bincode = "1.3"
