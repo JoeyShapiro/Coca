@@ -52,6 +52,7 @@ struct AppStats {
     combos: Vec<Combo>,
 }
 
+const DB_VERSION: u8 = 1;
 #[derive(Serialize, Deserialize, Debug)]
 struct Rock {
     at: u128,
@@ -113,10 +114,14 @@ fn _dummy_data(db: &DB) {
         };
 
         let serialized = bincode::serialize(&rock).unwrap();
+        let mut pk: [u8; 18] = [0; 18];
+        pk[0] = DB_VERSION;
+        pk[1] = 0;
+        pk[2..].copy_from_slice(&at.to_ne_bytes());
         // let serialized = serde_json::to_string(&rock).unwrap();
         // i think doing 100_000 with time::now is too fast
         // somehow, using the same key gives more than one row
-        db.put(at.to_ne_bytes(), serialized).unwrap();
+        db.put(pk, serialized).unwrap();
         // sleep(Duration::from_millis(100)); // wont do anything besides slow it down. im using unix_time as the key
         // db.flush().unwrap(); // this will make the db big, but has no data
     }
@@ -143,9 +148,10 @@ async fn applications(timeframe: String, state: tauri::State<'_, AppState>) -> R
     let iter = db.iterator(rocksdb::IteratorMode::End);
     for row in iter {
         let (key, value) = row.unwrap();
+        let t = &key[2..];
 
         // skip if to old
-        let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
+        let at = u128::from_ne_bytes(t.to_vec().try_into().unwrap());
         if at < start {
             break; // we are reversed, so we can break
         }
@@ -198,7 +204,8 @@ fn past_time(span: u128, n: u128, form: &str, state: tauri::State<'_, AppState>)
 
     for row in db.iterator(rocksdb::IteratorMode::End) {
         let (key, _value) = row.unwrap();
-        let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
+        let t = &key[2..];
+        let at = u128::from_ne_bytes(t.to_vec().try_into().unwrap());
 
         // add the data to the proper bucket
         for i in 0..n as usize {
@@ -253,7 +260,9 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
 
     for row in db.iterator(rocksdb::IteratorMode::End) {
         let (key, value) = row.unwrap();
-        let at = u128::from_ne_bytes(key.into_vec().try_into().unwrap());
+        // drop the first 2 bytes
+        let t = &key[2..];
+        let at = u128::from_ne_bytes(t.to_vec().try_into().unwrap());
 
         // check if we are no longer in bounds
         if at < start {
@@ -318,6 +327,8 @@ fn main() {
     opts.create_if_missing(true);
     // open default: 15.5MiB (111k)
     let db = Arc::new(DB::open(&opts, path).unwrap());
+    
+    // check if the db is the proper version
 
     {
         let mut last_window = FOCUSED_APP.lock().unwrap();
@@ -352,7 +363,7 @@ fn main() {
     });
 
     // _dummy_data(&db);
-    // exit(0);
+    // std::process::exit(0);
 
     // run gilrs in a separate thread
     let db_put = Arc::clone(&db);
@@ -366,6 +377,9 @@ fn main() {
 
         let mut pad = "?".to_string();
 
+        let mut nonce = 0; // i think this is the right thing, rather than salt/pepper
+        let mut pk: [u8; 18] = [0; 18];
+        pk[0] = DB_VERSION;
         loop {
             // Examine new events
             while let Some(Event { id, event, time }) = gilrs.next_event_blocking(Some(std::time::Duration::from_millis(100))) {
@@ -391,7 +405,13 @@ fn main() {
 
                 // println!("serialized = {:?}", serialized);
 
-                db_put.put(unix_time.to_ne_bytes(), serialized).unwrap();
+                // not sure if this is better than allocating a new vec
+                pk[1] = nonce;
+                pk[2..].copy_from_slice(&unix_time.to_ne_bytes());
+                // there can be multiple with the same nonce, as long as they arent at the same time
+                // this doesnt need to be in the struct, because i dont need it
+                nonce += 1;
+                db_put.put(pk, serialized).unwrap();
                 println!("{rock:?}");
             }
         }
