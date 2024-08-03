@@ -410,7 +410,12 @@ fn main() {
                 pk[2..].copy_from_slice(&unix_time.to_ne_bytes());
                 // there can be multiple with the same nonce, as long as they arent at the same time
                 // this doesnt need to be in the struct, because i dont need it
-                nonce += 1;
+                if nonce == 255 {
+                    nonce = 0;
+                } else {
+                    nonce += 1;
+                }
+
                 db_put.put(pk, serialized).unwrap();
                 println!("{rock:?}");
             }
