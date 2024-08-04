@@ -13,6 +13,7 @@ use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu
 
 struct Settings {
     db: Arc<DB>,
+    precision: Arc<f32>,
 }
 
 #[derive(Default)]
@@ -275,11 +276,12 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
             continue;
         }
 
-        // prec.
+        // prec. - use AxisChanged
         // add combo
-        // match other events
+        // match other events - AxisChanged
         // use gilrs svg
         // get app name for mac, cause fuck it
+        // touch grass
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about
@@ -327,6 +329,7 @@ fn main() {
     opts.create_if_missing(true);
     // open default: 15.5MiB (111k)
     let db = Arc::new(DB::open(&opts, path).unwrap());
+    let precision = Arc::new(0.0);
     
     // check if the db is the proper version
 
@@ -367,6 +370,7 @@ fn main() {
 
     // run gilrs in a separate thread
     let db_put = Arc::clone(&db);
+    let prec_put = Arc::clone(&precision);
     let _gilrs_thread = std::thread::spawn(move || {
         let mut gilrs = Gilrs::new().unwrap();
 
@@ -376,6 +380,9 @@ fn main() {
         }
 
         let mut pad = "?".to_string();
+        // create map for the events
+        let mut past_buttons = std::collections::HashMap::<gilrs::Button, f32>::new();
+        let mut past_axes = std::collections::HashMap::<gilrs::Axis, f32>::new();
 
         let mut nonce = 0; // i think this is the right thing, rather than salt/pepper
         let mut pk: [u8; 18] = [0; 18];
@@ -389,6 +396,31 @@ fn main() {
                     pad = gamepad.name().to_string();
                     
                     println!("connected: {:?}; power: {:?}; ff: {:?}", pad, gamepad.power_info(), gamepad.is_ff_supported());
+                }
+
+                match event {
+                    gilrs::EventType::AxisChanged(axis, value, _code) => {
+                        if let Some(past_value) = past_axes.get(&axis) {
+                            // better than -> value > past + prec || value < past - prec
+                            if (value - past_value).abs() < *prec_put {
+                                println!("skipping axis");
+                                continue;
+                            }
+                        }
+
+                        past_axes.insert(axis, value);
+                    }
+                    gilrs::EventType::ButtonChanged(button, value, _code) => {
+                        if let Some(past_value) = past_buttons.get(&button) {
+                            if (value - past_value).abs() < *prec_put {
+                                println!("skipping button");
+                                continue;
+                            }
+                        }
+
+                        past_buttons.insert(button, value);
+                    }
+                    _ => {}
                 }
 
                 let app = FOCUSED_APP.lock().unwrap();
@@ -491,7 +523,7 @@ fn main() {
             }
             _ => {}
         })
-        .manage(AppState(std::sync::Arc::new(std::sync::Mutex::new(Some(Settings { db })))))
+        .manage(AppState(std::sync::Arc::new(std::sync::Mutex::new(Some(Settings { db, precision })))))
         .invoke_handler(tauri::generate_handler![greet, applications, graph, app_stats])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
