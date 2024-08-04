@@ -16,6 +16,11 @@ struct Settings {
     precision: Arc<f32>,
 }
 
+#[derive(Serialize, Deserialize)]
+struct UserSettings {
+    precision: f32,
+}
+
 #[derive(Default)]
 struct AppState(std::sync::Arc<std::sync::Mutex<Option<Settings>>>);
 
@@ -129,6 +134,22 @@ fn _dummy_data(db: &DB) {
     db.flush().unwrap();
     let end = SystemTime::now();
     println!("inserted {n} values in {:?}", end.duration_since(start).unwrap());
+}
+
+#[tauri::command]
+async fn get_settings(state: tauri::State<'_, AppState>) -> Result<UserSettings, ()> {
+    let settings = state.0.lock().unwrap();
+    let precision = settings.as_ref().unwrap().precision.clone();
+    Ok(UserSettings {
+        precision: *precision,
+    })
+}
+
+#[tauri::command]
+fn set_settings(user_settings: UserSettings, state: tauri::State<'_, AppState>) -> Result<(), ()> {
+    let mut settings = state.0.lock().unwrap();
+    settings.as_mut().unwrap().precision = Arc::new(user_settings.precision);
+    Ok(())
 }
 
 #[tauri::command]
@@ -276,7 +297,6 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
             continue;
         }
 
-        // prec. - use AxisChanged
         // add combo
         // match other events - AxisChanged
         // use gilrs svg
@@ -524,7 +544,7 @@ fn main() {
             _ => {}
         })
         .manage(AppState(std::sync::Arc::new(std::sync::Mutex::new(Some(Settings { db, precision })))))
-        .invoke_handler(tauri::generate_handler![greet, applications, graph, app_stats])
+        .invoke_handler(tauri::generate_handler![greet, applications, graph, app_stats, get_settings, set_settings])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(move |app_handle, event| match event {

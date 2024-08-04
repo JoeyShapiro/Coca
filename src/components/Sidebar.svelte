@@ -29,6 +29,10 @@
         </ul>
             
             <div class="mt-auto p-3">
+                <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis" href="/settings">
+                    <img src="/settings.svg" class="bi" alt="settings" />
+                    Settings
+                </a>
                 <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis"
                     href="https://github.com/JoeyShapiro" target="_blank" rel="noopener noreferrer">
                     <img src="/github-mark.svg" class="bi" alt="plug" />
