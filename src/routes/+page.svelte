@@ -194,7 +194,7 @@
               {#each apps as app, i}
                 <tr>
                   <td>{i + 1}</td>
-                  <td><a class="nav-link" href="/applications/{app.name}">{app.name}</a></td>
+                  <td><a class="nav-link" href="/stats?app={app.name}">{app.name}</a></td>
                   <td>{app.presses}</td>
                   <td>{app.combos}</td>
                 </tr>

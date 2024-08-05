@@ -1,12 +1,15 @@
 <script lang="ts">
-	export let data: any;
+    const urlParams = new URLSearchParams(window.location.search);
+    const data = {
+        app: urlParams.get('app') || 'Unknown'
+    };
 
     import { invoke } from "@tauri-apps/api/tauri";
     import 'bootstrap/dist/css/bootstrap.min.css';
     import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
-    import Header from '../../../components/Header.svelte';
-    import Sidebar from '../../../components/Sidebar.svelte';
+    import Header from '../../components/Header.svelte';
+    import Sidebar from '../../components/Sidebar.svelte';
     import { onMount } from "svelte";
 
     // TODO i could dupe everything, but that would be pointless. this is a summary
