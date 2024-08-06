@@ -381,6 +381,7 @@ dependencies = [
  "bincode",
  "chrono",
  "gilrs",
+ "log",
  "rand 0.8.5",
  "rocksdb",
  "serde",

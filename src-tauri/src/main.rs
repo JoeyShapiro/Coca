@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem, WindowBuilder};
 
+use log::{info, trace, warn, debug, error};
+
 struct Settings {
     db: Arc<DB>,
     precision: Arc<f32>,
@@ -133,7 +135,7 @@ fn _dummy_data(db: &DB) {
     }
     db.flush().unwrap();
     let end = SystemTime::now();
-    println!("inserted {n} values in {:?}", end.duration_since(start).unwrap());
+    log::info!("inserted {n} values in {:?}", end.duration_since(start).unwrap());
 }
 
 #[tauri::command]
@@ -340,7 +342,7 @@ unsafe extern "system" fn win_event_proc(
     let mut last_window = FOCUSED_APP.lock().unwrap();
     *last_window = title.clone();
     
-    println!("Focus changed to: {}", title);
+    log::debug!("Focus changed to: {}", title);
 }
 
 fn main() {
@@ -372,7 +374,7 @@ fn main() {
             );
     
             if hook.0 == std::ptr::null_mut() {
-                println!("Failed to set event hook");
+                log::error!("Failed to set event hook");
                 std::process::exit(1);
             }
     
@@ -396,7 +398,7 @@ fn main() {
 
         // Iterate over all connected gamepads
         for (_id, gamepad) in gilrs.gamepads() {
-            println!("{} is {:?}", gamepad.name(), gamepad.power_info());
+            log::trace!("{} is {:?}", gamepad.name(), gamepad.power_info());
         }
 
         let mut pad = "?".to_string();
@@ -415,7 +417,7 @@ fn main() {
                     let gamepad = gilrs.gamepad(id);
                     pad = gamepad.name().to_string();
                     
-                    println!("connected: {:?}; power: {:?}; ff: {:?}", pad, gamepad.power_info(), gamepad.is_ff_supported());
+                    log::trace!("connected: {:?}; power: {:?}; ff: {:?}", pad, gamepad.power_info(), gamepad.is_ff_supported());
                 }
 
                 match event {
@@ -469,7 +471,7 @@ fn main() {
                 }
 
                 db_put.put(pk, serialized).unwrap();
-                println!("{rock:?}");
+                log::trace!("{rock:?}");
             }
         }
     });
@@ -492,21 +494,21 @@ fn main() {
                 size: _,
                 ..
             } => {
-                println!("system tray received a left click");
+                log::trace!("system tray received a left click");
             }
             SystemTrayEvent::RightClick {
                 position: _,
                 size: _,
                 ..
             } => {
-                println!("system tray received a right click");
+                log::trace!("system tray received a right click");
             }
             SystemTrayEvent::DoubleClick {
                 position: _,
                 size: _,
                 ..
             } => {
-                println!("system tray received a double click");
+                log::trace!("system tray received a double click");
             }
             SystemTrayEvent::MenuItemClick { id, .. } => {
                 let item_handle = app.tray_handle().get_item(&id);
