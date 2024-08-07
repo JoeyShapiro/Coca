@@ -307,7 +307,6 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
         // touch grass
         // add error handling
         // test prec
-        // disable gilrs logger - cant, but its fine and makes sense
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about
@@ -350,11 +349,14 @@ unsafe extern "system" fn win_event_proc(
 }
 
 fn main() {
-    let _logger = flexi_logger::Logger::try_with_env_or_str("debug").unwrap()
+    let  _logger = flexi_logger::Logger::try_with_env_or_str("debug").unwrap()
         .log_to_file(FileSpec::default()) // write logs to file
         .write_mode(WriteMode::BufferAndFlush)
-        .duplicate_to_stdout(flexi_logger::Duplicate::All)
-        .start().unwrap();
+        .duplicate_to_stdout(if cfg!(debug_assertions) {
+            Duplicate::All
+        } else {
+            Duplicate::None
+        }).start().unwrap();
 
     let path = "coca-rocks.db";
     let mut opts = Options::default();
