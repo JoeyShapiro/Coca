@@ -12,8 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem, WindowBuilder};
 
-use log::{info, trace, warn, debug, error};
-
 struct Settings {
     db: Arc<DB>,
     precision: Arc<f32>,
@@ -437,7 +435,7 @@ fn main() {
                         if let Some(past_value) = past_axes.get(&axis) {
                             // better than -> value > past + prec || value < past - prec
                             if (value - past_value).abs() < *prec_put {
-                                trace!("skipping axis");
+                                log::trace!("skipping axis");
                                 continue;
                             }
                         }
@@ -447,7 +445,7 @@ fn main() {
                     gilrs::EventType::ButtonChanged(button, value, _code) => {
                         if let Some(past_value) = past_buttons.get(&button) {
                             if (value - past_value).abs() < *prec_put {
-                                trace!("skipping button");
+                                log::trace!("skipping button");
                                 continue;
                             }
                         }
