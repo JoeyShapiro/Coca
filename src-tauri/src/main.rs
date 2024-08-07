@@ -4,6 +4,7 @@
 use std::{sync::{atomic::Ordering, Arc}, time::{SystemTime, UNIX_EPOCH}};
 use chrono::prelude::*;
 
+use flexi_logger::{Duplicate, FileSpec, WriteMode};
 use rocksdb::{DB, Options};
 
 use gilrs::{Event, Gilrs};
@@ -304,6 +305,9 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
         // use gilrs svg
         // get app name for mac, cause fuck it
         // touch grass
+        // add error handling
+        // test prec
+        // disable gilrs logger - cant, but its fine and makes sense
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about
@@ -346,6 +350,12 @@ unsafe extern "system" fn win_event_proc(
 }
 
 fn main() {
+    let _logger = flexi_logger::Logger::try_with_env_or_str("debug").unwrap()
+        .log_to_file(FileSpec::default()) // write logs to file
+        .write_mode(WriteMode::BufferAndFlush)
+        .duplicate_to_stdout(flexi_logger::Duplicate::All)
+        .start().unwrap();
+
     let path = "coca-rocks.db";
     let mut opts = Options::default();
     opts.create_if_missing(true);
@@ -398,7 +408,7 @@ fn main() {
 
         // Iterate over all connected gamepads
         for (_id, gamepad) in gilrs.gamepads() {
-            log::trace!("{} is {:?}", gamepad.name(), gamepad.power_info());
+            log::debug!("{} is {:?}", gamepad.name(), gamepad.power_info());
         }
 
         let mut pad = "?".to_string();
@@ -417,7 +427,7 @@ fn main() {
                     let gamepad = gilrs.gamepad(id);
                     pad = gamepad.name().to_string();
                     
-                    log::trace!("connected: {:?}; power: {:?}; ff: {:?}", pad, gamepad.power_info(), gamepad.is_ff_supported());
+                    log::debug!("connected: {:?}; power: {:?}; ff: {:?}", pad, gamepad.power_info(), gamepad.is_ff_supported());
                 }
 
                 match event {
@@ -425,7 +435,7 @@ fn main() {
                         if let Some(past_value) = past_axes.get(&axis) {
                             // better than -> value > past + prec || value < past - prec
                             if (value - past_value).abs() < *prec_put {
-                                println!("skipping axis");
+                                trace!("skipping axis");
                                 continue;
                             }
                         }
@@ -435,7 +445,7 @@ fn main() {
                     gilrs::EventType::ButtonChanged(button, value, _code) => {
                         if let Some(past_value) = past_buttons.get(&button) {
                             if (value - past_value).abs() < *prec_put {
-                                println!("skipping button");
+                                trace!("skipping button");
                                 continue;
                             }
                         }
@@ -494,21 +504,21 @@ fn main() {
                 size: _,
                 ..
             } => {
-                log::trace!("system tray received a left click");
+                log::debug!("system tray received a left click");
             }
             SystemTrayEvent::RightClick {
                 position: _,
                 size: _,
                 ..
             } => {
-                log::trace!("system tray received a right click");
+                log::debug!("system tray received a right click");
             }
             SystemTrayEvent::DoubleClick {
                 position: _,
                 size: _,
                 ..
             } => {
-                log::trace!("system tray received a double click");
+                log::debug!("system tray received a double click");
             }
             SystemTrayEvent::MenuItemClick { id, .. } => {
                 let item_handle = app.tray_handle().get_item(&id);
