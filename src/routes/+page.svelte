@@ -98,13 +98,17 @@
       points = data as Point[];
       chartData.labels = points.map((point) => point.label);
       chartData.datasets[0].data = points.map((point) => point.data);
+    }).catch((e) => {
+      console.error(e);
     });
 
     invoke("applications", { timeframe }).then((data) => {
       appsLoading = false;
       apps = data as Application[];
       apps.sort((a, b) => b.presses - a.presses);
-    });
+    }).catch((e) => {
+      console.error(e);
+    })
   }
 
   onMount(async () => {

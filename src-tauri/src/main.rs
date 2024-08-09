@@ -14,7 +14,7 @@ use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu
 
 struct Settings {
     db: Arc<DB>,
-    precision: Arc<f32>,
+    precision: Arc<std::sync::Mutex<f32>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -140,7 +140,7 @@ fn _dummy_data(db: &DB) {
 #[tauri::command]
 async fn get_settings(state: tauri::State<'_, AppState>) -> Result<UserSettings, ()> {
     let settings = state.0.lock().unwrap();
-    let precision = settings.as_ref().unwrap().precision..unwrap();
+    let precision = settings.as_ref().unwrap().precision.lock().unwrap();
     Ok(UserSettings {
         precision: *precision,
     })
@@ -154,7 +154,7 @@ fn set_settings(user_settings: UserSettings, state: tauri::State<'_, AppState>) 
 }
 
 #[tauri::command]
-async fn applications(timeframe: String, state: tauri::State<'_, AppState>) -> Result<Vec<Application>, ()> {
+async fn applications(timeframe: String, state: tauri::State<'_, AppState>) -> Result<Vec<Application>, String> {
     let mut apps = Vec::<Application>::new();
 
     let span = match timeframe.as_str() {
@@ -171,6 +171,12 @@ async fn applications(timeframe: String, state: tauri::State<'_, AppState>) -> R
     let iter = db.iterator(rocksdb::IteratorMode::End);
     for row in iter {
         let (key, value) = row.unwrap();
+
+        let version = key[0];
+        if version != DB_VERSION {
+            return Err("Database version mismatch".to_string());
+        }
+
         let t = &key[2..];
 
         // skip if to old
@@ -206,7 +212,7 @@ const WEEK: u128 = 7 * DAY; // 604_800_000 ms
 const MONTH: u128 = 30 * DAY; // 2_592_000_000 ms
 const YEAR: u128 = 365 * DAY; // 31_536_000_000 ms
 
-fn past_time(span: u128, n: u128, form: &str, state: tauri::State<'_, AppState>) -> Vec<Point> {
+fn past_time(span: u128, n: u128, form: &str, state: tauri::State<'_, AppState>) -> Result<Vec<Point>, String> {
     let start = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis() - span;
 
     // create the buckets
@@ -227,6 +233,12 @@ fn past_time(span: u128, n: u128, form: &str, state: tauri::State<'_, AppState>)
 
     for row in db.iterator(rocksdb::IteratorMode::End) {
         let (key, _value) = row.unwrap();
+
+        let version = key[0];
+        if version != DB_VERSION {
+            return Err("Database version mismatch".to_string());
+        }
+
         let t = &key[2..];
         let at = u128::from_ne_bytes(t.to_vec().try_into().unwrap());
 
@@ -245,11 +257,11 @@ fn past_time(span: u128, n: u128, form: &str, state: tauri::State<'_, AppState>)
         }
     }
 
-    buckets
+    Ok(buckets)
 }
 
 #[tauri::command]
-async fn graph(timeframe: String, state: tauri::State<'_, AppState>) -> Result<Vec<Point>, ()> {
+async fn graph(timeframe: String, state: tauri::State<'_, AppState>) -> Result<Vec<Point>, String> {
     let points = match timeframe.as_str() {
         "day" => past_time(DAY, 24, "%l %P", state),
         "week" => past_time(WEEK, 7, "%a", state),
@@ -258,11 +270,11 @@ async fn graph(timeframe: String, state: tauri::State<'_, AppState>) -> Result<V
         _ => past_time(DAY, 24, "%l %P", state),
     };
 
-    Ok(points)
+    points
 }
 
 #[tauri::command]
-async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppState>) -> Result<AppStats, ()> {
+async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppState>) -> Result<AppStats, String> {
     let mut app =  AppStats {
         name: app,
         presses: Vec::new(),
@@ -283,6 +295,12 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
 
     for row in db.iterator(rocksdb::IteratorMode::End) {
         let (key, value) = row.unwrap();
+
+        let version = key[0];
+        if version != DB_VERSION {
+            return Err("Database version mismatch".to_string());
+        }
+
         // drop the first 2 bytes
         let t = &key[2..];
         let at = u128::from_ne_bytes(t.to_vec().try_into().unwrap());
@@ -303,7 +321,7 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
         // use gilrs svg
         // get app name for mac, cause fuck it
         // touch grass
-        // add error handling
+        // store data - sqlite should be fine
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about
