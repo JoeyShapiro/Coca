@@ -140,7 +140,7 @@ fn _dummy_data(db: &DB) {
 #[tauri::command]
 async fn get_settings(state: tauri::State<'_, AppState>) -> Result<UserSettings, ()> {
     let settings = state.0.lock().unwrap();
-    let precision = settings.as_ref().unwrap().precision.clone();
+    let precision = settings.as_ref().unwrap().precision..unwrap();
     Ok(UserSettings {
         precision: *precision,
     })
@@ -149,7 +149,7 @@ async fn get_settings(state: tauri::State<'_, AppState>) -> Result<UserSettings,
 #[tauri::command]
 fn set_settings(user_settings: UserSettings, state: tauri::State<'_, AppState>) -> Result<(), ()> {
     let mut settings = state.0.lock().unwrap();
-    settings.as_mut().unwrap().precision = Arc::new(user_settings.precision);
+    *settings.as_mut().unwrap().precision.lock().unwrap() = user_settings.precision;
     Ok(())
 }
 
@@ -361,7 +361,7 @@ fn main() {
     opts.create_if_missing(true);
     // open default: 15.5MiB (111k)
     let db = Arc::new(DB::open(&opts, path).unwrap());
-    let precision = Arc::new(0.0);
+    let precision = Arc::new(std::sync::Mutex::new(0.0));
     
     // check if the db is the proper version
 
@@ -432,9 +432,10 @@ fn main() {
 
                 match event {
                     gilrs::EventType::AxisChanged(axis, value, _code) => {
+                        let prec = *prec_put.lock().unwrap();
                         if let Some(past_value) = past_axes.get(&axis) {
                             // better than -> value > past + prec || value < past - prec
-                            if (value - past_value).abs() < *prec_put {
+                            if (value - past_value).abs() < prec {
                                 log::trace!("skipping axis");
                                 continue;
                             }
@@ -443,8 +444,9 @@ fn main() {
                         past_axes.insert(axis, value);
                     }
                     gilrs::EventType::ButtonChanged(button, value, _code) => {
+                        let prec = *prec_put.lock().unwrap();
                         if let Some(past_value) = past_buttons.get(&button) {
-                            if (value - past_value).abs() < *prec_put {
+                            if (value - past_value).abs() < prec {
                                 log::trace!("skipping button");
                                 continue;
                             }
@@ -481,7 +483,7 @@ fn main() {
                 }
 
                 db_put.put(pk, serialized).unwrap();
-                log::trace!("{rock:?}");
+                log::debug!("{rock:?}");
             }
         }
     });
@@ -555,7 +557,7 @@ fn main() {
             }
             _ => {}
         })
-        .manage(AppState(std::sync::Arc::new(std::sync::Mutex::new(Some(Settings { db, precision })))))
+        .manage(AppState(std::sync::Arc::new(std::sync::Mutex::new(Some(Settings { db, precision: Arc::clone(&precision) })))))
         .invoke_handler(tauri::generate_handler![greet, applications, graph, app_stats, get_settings, set_settings])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
