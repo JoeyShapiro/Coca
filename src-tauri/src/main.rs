@@ -304,7 +304,6 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
         // get app name for mac, cause fuck it
         // touch grass
         // add error handling
-        // test prec
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about
