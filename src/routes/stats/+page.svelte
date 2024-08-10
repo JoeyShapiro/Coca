@@ -37,14 +37,17 @@
     }
 
     function onHeatmapAdded(node: HTMLCanvasElement, axis: Axis) {
+      // get the max value of the buckets
+      let max = Math.max(...Object.values(axis.pos_buckets));
+
       let ctx = node.getContext('2d');
       if (ctx) {
         for (const [key, value] of Object.entries(axis.pos_buckets)) {
           let k = axis.h*+key;
           ctx.beginPath();
-          ctx.arc(32, 32, 32, (k+1)*Math.PI, (k+axis.h+1)*Math.PI);
-          console.log(`'rgba(${value/200*255}, 0, 0, 0.5)'`);
-          ctx.fillStyle = `rgba(${value/200*255}, 0, 0, 0.5)`;
+          // ctx.arc(32, 32, 32, (k+1)*Math.PI, (k+axis.h+1)*Math.PI);
+          ctx.rect((k+1)*32, 32-5, (axis.h+1)*4, 10);
+          ctx.fillStyle = `rgba(${value/max*255}, 0, ${(1-value/max)*255}, 0.5)`;
           ctx.fill();
         }
       }
@@ -163,6 +166,22 @@
             {/each}
         </div>
         <div class="row p-2">
+          <h3 class="h2">Axes</h3>
+          {#each stats.axes as axis}
+          <div class="col-md-2 p-2">
+              <div class="card">
+                  <div class="card-body">
+                      <h5 class="card-title">{axis.name}</h5>
+                      {#each Object.entries(axis.pos_buckets) as [bucket, count]}
+                        <p class="card-text">{bucket}: {count}</p>
+                      {/each}
+                      <!-- <canvas use:onHeatmapAdded={axis} width="64" height="64"></canvas> -->
+                  </div>
+              </div>
+          </div>
+          {/each}
+      </div>
+        <div class="row p-2">
             <h3 class="h2">Combos</h3>
             {#each stats.combos as combo}
             <div class="col-md-2 p-2">
@@ -175,20 +194,7 @@
                 </div>
             </div>
             {/each}
-        </div>
-        <div class="row p-2">
-          <h3 class="h2">Axes</h3>
-          {#each stats.axes as axis}
-          <div class="col-md-2 p-2">
-              <div class="card">
-                  <div class="card-body">
-                      <h5 class="card-title">{axis.name}</h5>
-                      <canvas use:onHeatmapAdded={axis} width="64" height="64"></canvas>
-                  </div>
-              </div>
           </div>
-          {/each}
-      </div>
       </main>
     </div>
   </div>
