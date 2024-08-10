@@ -1,27 +1,31 @@
+<script lang="ts">
+    export let app: string|undefined;
+    let overview = app ? `/stats?app=${app}` : "/";
+</script>
+
 <div class="sidebar border border-right col-md-3 col-lg-2 p-0 bg-body-tertiary">
     <div class="offcanvas-md offcanvas-end bg-body-tertiary h-100" tabindex="-1" id="sidebarMenu" aria-labelledby="sidebarMenuLabel">
         <div class="offcanvas-body d-md-flex flex-column p-0 pt-lg-3 overflow-y-auto h-100">
         <ul class="nav flex-column mb-auto">
             <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 link-secondary" href="#">
+            <a class="nav-link d-flex align-items-center gap-2 link-secondary" href="{overview}">
                 <img src="/overview.svg" class="bi" alt="overview" />
                 Overview
             </a>
             </li>
             <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis" href="#">
+            <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis" href="/heatmap?app={app}">
                 <img src="/heatmap.svg" class="bi" alt="overview" />
                 Heatmap
             </a>
             </li>
             <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis" href="#">
+            <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis" href="/combos?app={app}">
                 <img src="/combo.svg" class="bi" alt="combo" />
                 Combos
             </a>
             </li>
-        </ul>
-            
+        </ul> 
             <div class="mt-auto p-3">
                 <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis" href="/settings">
                     <img src="/settings.svg" class="bi" alt="settings" />
