@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{sync::{atomic::Ordering, Arc}, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::HashMap, hash::Hash, sync::{atomic::Ordering, Arc}, time::{SystemTime, UNIX_EPOCH}};
 use chrono::prelude::*;
 
 use flexi_logger::{Duplicate, FileSpec, WriteMode};
@@ -46,6 +46,22 @@ struct Button {
 }
 
 #[derive(Serialize)]
+struct Axis {
+    name: gilrs::Axis,
+    // pos: presses
+    // 0 indexed: [ 0.0, 0.1, ..., 0.9 ] => 0.9 < 0.95 < 1.0 => 0.9 => 9
+    // not less than, so do the one before
+    // < indexed: [ 0.1, 0.2, ..., 1.0 ] => 0.9 < 0.95 < 1.0 => 1.0 => 9
+    // this seems the best way, since doing [i-1] seems like a bad idea
+    // going down one might be easier mathematically
+    // and an equation would be cheaper than doing a comparison on each level
+    // 0.9 => ⌊0.9/0.1⌋ => 9
+    // i: presses => i*precision: presses
+    pos_buckets: std::collections::HashMap<i32, i32>,
+    h: f32, // i dont know on the frontend what they are, and all i have is the axis
+}
+
+#[derive(Serialize)]
 struct Combo {
     name: String,
     pattern: Vec<String>,
@@ -56,6 +72,7 @@ struct Combo {
 struct AppStats {
     name: String,
     presses: Vec<Button>,
+    axes: Vec<Axis>,
     combos: Vec<Combo>,
 }
 
@@ -278,8 +295,13 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
     let mut app =  AppStats {
         name: app,
         presses: Vec::new(),
+        axes: Vec::new(),
         combos: Vec::new(),
     };
+
+    // used for buckets of the axes, i could use a unique value, but this is easier
+    // not using prec, it could be 0 or too many
+    let h = 0.2;
 
     let span = match timeframe.as_str() {
         "day" => DAY,
@@ -317,7 +339,6 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
         }
 
         // add combo
-        // match other events - AxisChanged
         // use gilrs svg
         // get app name for mac, cause fuck it
         // touch grass
@@ -325,16 +346,32 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about
-        if let gilrs::EventType::ButtonPressed(button, _code) = rock.event {
-            let pressed = app.presses.iter_mut().find(|press| press.name == button);
-            if let Some(pressed) = pressed {
-                pressed.presses += 1;
-            } else {
-                app.presses.push(Button {
-                    name: button,
-                    presses: 1,
-                });
-            }
+        match rock.event {
+            gilrs::EventType::ButtonPressed(button, _code) => {
+                let pressed = app.presses.iter_mut().find(|press| press.name == button);
+                if let Some(pressed) = pressed {
+                    pressed.presses += 1;
+                } else {
+                    app.presses.push(Button {
+                        name: button,
+                        presses: 1,
+                    });
+                }
+            },
+            gilrs::EventType::AxisChanged(axis, pos, _code) => {
+                let bucket = (pos/h).floor() as i32;
+
+                if let Some(axis) = app.axes.iter_mut().find(|press| press.name == axis) {
+                    // the axis exists, the map may not
+                    *axis.pos_buckets.entry(bucket).or_default() += 1;
+                } else {
+                    // nothing exists
+                    let mut pos_buckets: HashMap<i32, i32> = HashMap::new();
+                    *pos_buckets.entry(bucket).or_default() += 1;
+                    app.axes.push(Axis { name: axis, pos_buckets, h });
+                }
+            },
+            _ => {}
         }
     }
 

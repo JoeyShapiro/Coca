@@ -23,6 +23,38 @@
             this.presses = presses;
         }
     }
+    
+    class Axis {
+        name: string;
+        pos_buckets: number[];
+        h: number;
+
+        constructor(name: string, pos_buckets: number[], h: number) {
+            this.name = name;
+            this.pos_buckets = pos_buckets;
+            this.h = h;
+        }
+    }
+
+    function onHeatmapAdded(node: HTMLCanvasElement, axis: Axis) {
+      let ctx = node.getContext('2d');
+      if (ctx) {
+        for (const [key, value] of Object.entries(axis.pos_buckets)) {
+          let k = axis.h*+key;
+          ctx.beginPath();
+          ctx.arc(32, 32, 32, (k+1)*Math.PI, (k+axis.h+1)*Math.PI);
+          console.log(`'rgba(${value/200*255}, 0, 0, 0.5)'`);
+          ctx.fillStyle = `rgba(${value/200*255}, 0, 0, 0.5)`;
+          ctx.fill();
+        }
+      }
+
+      return {
+        destroy() {
+          // Optional: Clean up code
+        }
+      };
+    };
 
     class Combo {
         name: string;
@@ -39,17 +71,19 @@
     class AppStats {
         app: string;
         presses: Button[];
+        axes: Axis[];
         combos: Combo[];
 
-        constructor(app: string, presses: Button[], combos: Combo[]) {
+        constructor(app: string, presses: Button[], axes: Axis[], combos: Combo[]) {
             this.app = app;
             this.presses = presses;
+            this.axes = axes;
             this.combos = combos;
         }
     }
 
     let timeframe: string = "week";
-    let stats: AppStats = new AppStats("", [], []);
+    let stats: AppStats = new AppStats("", [], [], []);
 
     function changeTime() {
         invoke("app_stats", { app: data.app, timeframe }).then((data) => {
@@ -142,6 +176,19 @@
             </div>
             {/each}
         </div>
+        <div class="row p-2">
+          <h3 class="h2">Axes</h3>
+          {#each stats.axes as axis}
+          <div class="col-md-2 p-2">
+              <div class="card">
+                  <div class="card-body">
+                      <h5 class="card-title">{axis.name}</h5>
+                      <canvas use:onHeatmapAdded={axis} width="64" height="64"></canvas>
+                  </div>
+              </div>
+          </div>
+          {/each}
+      </div>
       </main>
     </div>
   </div>
