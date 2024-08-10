@@ -20,12 +20,6 @@
                 Combos
             </a>
             </li>
-            <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 link-body-emphasis" href="#">
-                <!-- <img src="/overview.svg" class="logo" alt="overview" /> -->
-                Integrations
-            </a>
-            </li>
         </ul>
             
             <div class="mt-auto p-3">
