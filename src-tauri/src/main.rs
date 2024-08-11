@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{collections::HashMap, hash::Hash, sync::{atomic::Ordering, Arc}, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::HashMap, sync::{atomic::Ordering, Arc}, time::{SystemTime, UNIX_EPOCH}};
 use chrono::prelude::*;
 
 use flexi_logger::{Duplicate, FileSpec, WriteMode};
@@ -11,6 +11,10 @@ use gilrs::{Event, Gilrs};
 use serde::{Deserialize, Serialize};
 
 use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem, WindowBuilder};
+
+// add combo
+// get app name for mac, cause fuck it
+// export, share
 
 struct Settings {
     db: Arc<DB>,
@@ -341,11 +345,6 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
         if rock.app != app.name {
             continue;
         }
-
-        // add combo
-        // get app name for mac, cause fuck it
-        // touch grass
-        // test prec
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about

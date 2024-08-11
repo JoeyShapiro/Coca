@@ -106,30 +106,31 @@
     function changeTime() {
         invoke("app_stats", { app: data.app, timeframe }).then((data) => {
             stats = data as AppStats;
-            let svg = document.querySelector("#heatmap svg#svg2");
-            console.log(svg);
+
+            let svg = document.getElementById("heatmap")?.getSVGDocument().getElementById("svg2");
+            if (!svg) {
+                console.error("SVG not found");
+                return;
+            }
+
+            // get button with most presses
+            let max = Math.max(...stats.presses.map((button) => button.presses));
+
+            for (const button of stats.presses) {
+                let id = NameToId[button.name];
+                if (!id) {
+                    console.error(`Button ${button.name} not found`);
+                    continue;
+                }
+
+                svg.getElementById(id).style.fill = `rgba(${button.presses/max*255}, 0, ${(1-button.presses/max)*255}, 0.5)`;
+            }
         });
     }
 
     onMount(() => {
         invoke("app_stats", { app: data.app, timeframe }).then((data) => {
             stats = data as AppStats;
-            console.log(stats);
-            //*[@id="path4325"] // S
-            //*[@id="path4333"] // W
-            //*[@id="path4337"] // E
-            //*[@id="path4341"] // N
-
-            //*[@id="path3892"] // left stick
-            //*[@id="path3892-9"] // right stick
-            //*[@id="path3892-9-3"] // menu
-            //*[@id="rect3922"] // start
-            //*[@id="rect3922-8"] // back
-
-            //*[@id="path4171"] // rb
-            //*[@id="path4171-2"] // lb
-            //*[@id="path3057"] // rt
-            //*[@id="path3057-1"] // lt
 
             let svg = document.getElementById("heatmap")?.getSVGDocument().getElementById("svg2");
             if (!svg) {
@@ -162,11 +163,10 @@
         <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
           <h1 class="h2">{app}</h1>
           <div class="btn-toolbar mb-2 mb-md-0">
-            <div class="btn-group me-2">
-                <button type="button" class="btn btn-sm btn-outline-primary">Add Combo</button>
+            <!-- <div class="btn-group me-2">
               <button type="button" class="btn btn-sm btn-outline-secondary">Share</button>
               <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
-            </div>
+            </div> -->
   
             <div class="dropdown">
               <button class="btn btn-sm btn-outline-secondary gap-1 py-2 px-0 px-lg-2 dropdown-toggle align-items-center" type="button" data-bs-toggle="dropdown">

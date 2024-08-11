@@ -21,12 +21,12 @@
                 Heatmap
             </a>
             </li>
-            <li class="nav-item">
+            <!-- <li class="nav-item">
             <a class="nav-link d-flex align-items-center gap-2 { $page.url.pathname.includes('combos') ? 'link-secondary' : 'link-body-emphasis' }" href="/combos?app={app}">
                 <img src="/combo.svg" class="bi" alt="combo" />
                 Combos
             </a>
-            </li>
+            </li> -->
         </ul> 
             <div class="mt-auto p-3">
                 <a class="nav-link d-flex align-items-center gap-2 { $page.url.pathname.includes('settings') ? 'link-secondary' : 'link-body-emphasis' }" href="/settings">
