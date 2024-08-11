@@ -3,6 +3,7 @@
     const data = {
         app: urlParams.get('app') || 'Unknown'
     };
+    let app = data.app == "undefined" ? "Heatmap" : data.app;
 
     import { invoke } from "@tauri-apps/api/tauri";
     import 'bootstrap/dist/css/bootstrap.min.css';
@@ -12,7 +13,21 @@
     import Sidebar from '../../components/Sidebar.svelte';
     import { onMount } from "svelte";
 
-    // TODO i could dupe everything, but that would be pointless. this is a summary
+    const NameToId: { [key: string]: string } = {
+        "South": "path4325",
+        "West": "path4333",
+        "East": "path4337",
+        "North": "path4341",
+        "LS": "path3892",
+        "RS": "path3892-9",
+        "Mode": "path3892-9-3",
+        "Start": "rect3922",
+        "Select": "rect3922-8",
+        "RightTrigger2": "path4171",
+        "LeftTrigger2": "path4171-2",
+        "RightTrigger": "path3057",
+        "LeftTrigger": "path3057-1"
+    };
 
     class Button {
         name: string;
@@ -35,6 +50,29 @@
             this.h = h;
         }
     }
+
+    function onHeatmapAdded(node: HTMLCanvasElement, axis: Axis) {
+      // get the max value of the buckets
+      let max = Math.max(...Object.values(axis.pos_buckets));
+
+      let ctx = node.getContext('2d');
+      if (ctx) {
+        for (const [key, value] of Object.entries(axis.pos_buckets)) {
+          let k = axis.h*+key;
+          ctx.beginPath();
+          // ctx.arc(32, 32, 32, (k+1)*Math.PI, (k+axis.h+1)*Math.PI);
+          ctx.rect((k+1)*32, 32-5, (axis.h+1)*4, 10);
+          ctx.fillStyle = `rgba(${value/max*255}, 0, ${(1-value/max)*255}, 0.5)`;
+          ctx.fill();
+        }
+      }
+
+      return {
+        destroy() {
+          // Optional: Clean up code
+        }
+      };
+    };
 
     class Combo {
         name: string;
@@ -68,6 +106,8 @@
     function changeTime() {
         invoke("app_stats", { app: data.app, timeframe }).then((data) => {
             stats = data as AppStats;
+            let svg = document.querySelector("#heatmap svg#svg2");
+            console.log(svg);
         });
     }
 
@@ -75,6 +115,40 @@
         invoke("app_stats", { app: data.app, timeframe }).then((data) => {
             stats = data as AppStats;
             console.log(stats);
+            //*[@id="path4325"] // S
+            //*[@id="path4333"] // W
+            //*[@id="path4337"] // E
+            //*[@id="path4341"] // N
+
+            //*[@id="path3892"] // left stick
+            //*[@id="path3892-9"] // right stick
+            //*[@id="path3892-9-3"] // menu
+            //*[@id="rect3922"] // start
+            //*[@id="rect3922-8"] // back
+
+            //*[@id="path4171"] // rb
+            //*[@id="path4171-2"] // lb
+            //*[@id="path3057"] // rt
+            //*[@id="path3057-1"] // lt
+
+            let svg = document.getElementById("heatmap")?.getSVGDocument().getElementById("svg2");
+            if (!svg) {
+                console.error("SVG not found");
+                return;
+            }
+
+            // get button with most presses
+            let max = Math.max(...stats.presses.map((button) => button.presses));
+
+            for (const button of stats.presses) {
+                let id = NameToId[button.name];
+                if (!id) {
+                    console.error(`Button ${button.name} not found`);
+                    continue;
+                }
+
+                svg.getElementById(id).style.fill = `rgba(${button.presses/max*255}, 0, ${(1-button.presses/max)*255}, 0.5)`;
+            }
         });
     });
 </script>
@@ -86,7 +160,7 @@
       <Sidebar app="{data.app}" />
       <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
         <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-          <h1 class="h2">{data.app}</h1>
+          <h1 class="h2">{app}</h1>
           <div class="btn-toolbar mb-2 mb-md-0">
             <div class="btn-group me-2">
                 <button type="button" class="btn btn-sm btn-outline-primary">Add Combo</button>
@@ -129,48 +203,7 @@
           </div>
         </div>
 
-        <div class="row p-2">
-            <h3 class="h2">Presses</h3>
-            {#each stats.presses as press}
-            <div class="col-md-2 p-2">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">{press.name}</h5>
-                        <p class="card-text">{press.presses}</p>
-                    </div>
-                </div>
-            </div>
-            {/each}
-        </div>
-        <div class="row p-2">
-          <h3 class="h2">Axes</h3>
-          {#each stats.axes as axis}
-          <div class="col-md-2 p-2">
-              <div class="card">
-                  <div class="card-body">
-                      <h5 class="card-title">{axis.name}</h5>
-                      {#each Object.entries(axis.pos_buckets) as [bucket, count]}
-                        <p class="card-text">{bucket}: {count}</p>
-                      {/each}
-                  </div>
-              </div>
-          </div>
-          {/each}
-      </div>
-        <div class="row p-2">
-            <h3 class="h2">Combos</h3>
-            {#each stats.combos as combo}
-            <div class="col-md-2 p-2">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">{combo.name}</h5>
-                        <p class="card-text">{combo.pattern}</p>
-                        <p class="card-text">{combo.presses}</p>
-                    </div>
-                </div>
-            </div>
-            {/each}
-          </div>
+        <object id="heatmap" type="image/svg+xml" data="controller.svg" title="controller"></object>
       </main>
     </div>
   </div>

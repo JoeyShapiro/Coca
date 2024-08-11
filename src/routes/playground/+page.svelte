@@ -8,29 +8,8 @@
     import Header from '../../components/Header.svelte';
     import Sidebar from '../../components/Sidebar.svelte';
   
-    class Application {
-      name: string;
-      presses: number;
-      combos: number;
-  
-      constructor(name: string, presses: number, combos: number) {
-        this.name = name;
-        this.presses = presses;
-        this.combos = combos;
-      }
-    }
-  
-    let apps: Application[] = [];
-  
-    async function applications() {
-      apps = await invoke("applications");
-  
-      // sort by presses
-      apps.sort((a, b) => b.presses - a.presses);
-    }
-  
     onMount(() => {
-      applications();
+        
     });
   
   </script>
