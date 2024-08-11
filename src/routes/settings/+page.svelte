@@ -25,7 +25,10 @@
     }
 
     async function setSettings() {
-      await invoke("set_settings", { userSettings: settings });
+      await invoke("set_settings", { userSettings: settings })
+        .catch((e) => {
+          console.error(e);
+        });
     }
   
     onMount(() => {

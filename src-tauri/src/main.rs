@@ -163,9 +163,14 @@ async fn get_settings(state: tauri::State<'_, AppState>) -> Result<UserSettings,
 }
 
 #[tauri::command]
-fn set_settings(user_settings: UserSettings, state: tauri::State<'_, AppState>) -> Result<(), ()> {
+fn set_settings(user_settings: UserSettings, state: tauri::State<'_, AppState>) -> Result<(), String> {
     let mut settings = state.0.lock().unwrap();
-    *settings.as_mut().unwrap().user_settings.lock().unwrap() = user_settings;
+    *settings.as_mut().unwrap().user_settings.lock().unwrap() = user_settings.clone();
+
+    // write to file
+    let settings_data = serde_json::to_string(&user_settings).unwrap();
+    std::fs::write("settings.json", settings_data).map_err(|err| err.to_string())?;
+
     Ok(())
 }
 
@@ -338,16 +343,9 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
         }
 
         // add combo
-        // use gilrs svg
         // get app name for mac, cause fuck it
         // touch grass
-        // store json file
         // test prec
-        // use logging
-        // add multiple commits
-        //  use user settings instead of lose values
-        //  use json settigns
-        //  set logging level by value
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about
@@ -401,7 +399,7 @@ unsafe extern "system" fn win_event_proc(
 
     let mut last_window = FOCUSED_APP.lock().unwrap();
     *last_window = if title.is_empty() {
-        "?".to_string()
+        "Windows".to_string()
     } else {
         title
     };
@@ -422,7 +420,7 @@ fn main() {
     let user_settings: Result<UserSettings, _> = serde_json::from_str(&settings_data);
     let user_settings = Arc::new(std::sync::Mutex::new(user_settings.unwrap()));
 
-    let  _logger = flexi_logger::Logger::try_with_env_or_str("debug, off").unwrap()
+    let  _logger = flexi_logger::Logger::try_with_env_or_str(user_settings.lock().unwrap().logging.clone()).unwrap()
         .log_to_file(FileSpec::default()) // write logs to file
         .write_mode(WriteMode::BufferAndFlush)
         .duplicate_to_stdout(if cfg!(debug_assertions) {
