@@ -400,7 +400,7 @@ unsafe extern "system" fn win_event_proc(
     *last_window = if title.is_empty() {
         "Windows".to_string()
     } else {
-        title
+        title.clone()
     };
     
     log::debug!("Focus changed to: {}", title);
