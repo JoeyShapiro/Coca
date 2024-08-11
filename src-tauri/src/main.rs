@@ -395,7 +395,11 @@ unsafe extern "system" fn win_event_proc(
     let title = String::from_utf16_lossy(&title[..len as usize]);
 
     let mut last_window = FOCUSED_APP.lock().unwrap();
-    *last_window = title.clone();
+    *last_window = if title.is_empty() {
+        "?".to_string()
+    } else {
+        title
+    };
     
     log::debug!("Focus changed to: {}", title);
 }
