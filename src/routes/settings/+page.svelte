@@ -10,13 +10,15 @@
   
     class UserSettings {
       precision: number;
+      logging: string;
 
-      constructor(precision: number) {
+      constructor(precision: number, logging: string) {
         this.precision = precision;
+        this.logging = logging;
       }
     }
 
-    let settings = new UserSettings(0);
+    let settings = new UserSettings(0, "off");
   
     async function getSettings() {
       settings = await invoke("get_settings");

@@ -14,12 +14,13 @@ use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu
 
 struct Settings {
     db: Arc<DB>,
-    precision: Arc<std::sync::Mutex<f32>>,
+    user_settings: Arc<std::sync::Mutex<UserSettings>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct UserSettings {
     precision: f32,
+    logging: String,
 }
 
 #[derive(Default)]
@@ -157,16 +158,14 @@ fn _dummy_data(db: &DB) {
 #[tauri::command]
 async fn get_settings(state: tauri::State<'_, AppState>) -> Result<UserSettings, ()> {
     let settings = state.0.lock().unwrap();
-    let precision = settings.as_ref().unwrap().precision.lock().unwrap();
-    Ok(UserSettings {
-        precision: *precision,
-    })
+    let user_settings = settings.as_ref().unwrap().user_settings.lock().unwrap();
+    Ok(user_settings.clone())
 }
 
 #[tauri::command]
 fn set_settings(user_settings: UserSettings, state: tauri::State<'_, AppState>) -> Result<(), ()> {
     let mut settings = state.0.lock().unwrap();
-    *settings.as_mut().unwrap().precision.lock().unwrap() = user_settings.precision;
+    *settings.as_mut().unwrap().user_settings.lock().unwrap() = user_settings;
     Ok(())
 }
 
@@ -342,7 +341,13 @@ async fn app_stats(app: String, timeframe: String, state: tauri::State<'_, AppSt
         // use gilrs svg
         // get app name for mac, cause fuck it
         // touch grass
-        // store data - sqlite should be fine
+        // store json file
+        // test prec
+        // use logging
+        // add multiple commits
+        //  use user settings instead of lose values
+        //  use json settigns
+        //  set logging level by value
 
         // this will be auto formatted by serde when going to js
         // this really has all the events i care about
@@ -405,7 +410,19 @@ unsafe extern "system" fn win_event_proc(
 }
 
 fn main() {
-    let  _logger = flexi_logger::Logger::try_with_env_or_str("debug").unwrap()
+    // read settings json file
+    let settings_data = std::fs::read_to_string("settings.json").unwrap_or_else(|_| {
+        let default = UserSettings {
+            precision: 0.0,
+            logging: "off".to_string(),
+        };
+        serde_json::to_string(&default).unwrap()
+    });
+
+    let user_settings: Result<UserSettings, _> = serde_json::from_str(&settings_data);
+    let user_settings = Arc::new(std::sync::Mutex::new(user_settings.unwrap()));
+
+    let  _logger = flexi_logger::Logger::try_with_env_or_str("debug, off").unwrap()
         .log_to_file(FileSpec::default()) // write logs to file
         .write_mode(WriteMode::BufferAndFlush)
         .duplicate_to_stdout(if cfg!(debug_assertions) {
@@ -419,7 +436,6 @@ fn main() {
     opts.create_if_missing(true);
     // open default: 15.5MiB (111k)
     let db = Arc::new(DB::open(&opts, path).unwrap());
-    let precision = Arc::new(std::sync::Mutex::new(0.0));
     
     // check if the db is the proper version
 
@@ -460,7 +476,7 @@ fn main() {
 
     // run gilrs in a separate thread
     let db_put = Arc::clone(&db);
-    let prec_put = Arc::clone(&precision);
+    let settings_put = Arc::clone(&user_settings);
     let _gilrs_thread = std::thread::spawn(move || {
         let mut gilrs = Gilrs::new().unwrap();
 
@@ -490,7 +506,7 @@ fn main() {
 
                 match event {
                     gilrs::EventType::AxisChanged(axis, value, _code) => {
-                        let prec = *prec_put.lock().unwrap();
+                        let prec = settings_put.lock().unwrap().precision;
                         if let Some(past_value) = past_axes.get(&axis) {
                             // better than -> value > past + prec || value < past - prec
                             if (value - past_value).abs() < prec {
@@ -502,7 +518,7 @@ fn main() {
                         past_axes.insert(axis, value);
                     }
                     gilrs::EventType::ButtonChanged(button, value, _code) => {
-                        let prec = *prec_put.lock().unwrap();
+                        let prec = settings_put.lock().unwrap().precision;
                         if let Some(past_value) = past_buttons.get(&button) {
                             if (value - past_value).abs() < prec {
                                 log::trace!("skipping button");
@@ -541,7 +557,7 @@ fn main() {
                 }
 
                 db_put.put(pk, serialized).unwrap();
-                log::debug!("{rock:?}");
+                log::trace!("{rock:?}");
             }
         }
     });
@@ -615,7 +631,7 @@ fn main() {
             }
             _ => {}
         })
-        .manage(AppState(std::sync::Arc::new(std::sync::Mutex::new(Some(Settings { db, precision: Arc::clone(&precision) })))))
+        .manage(AppState(std::sync::Arc::new(std::sync::Mutex::new(Some(Settings { db, user_settings: Arc::clone(&user_settings) })))))
         .invoke_handler(tauri::generate_handler![greet, applications, graph, app_stats, get_settings, set_settings])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
